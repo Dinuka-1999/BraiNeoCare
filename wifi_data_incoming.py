@@ -154,7 +154,7 @@ def menu():
 
     mainloop()
 
-UDP_IP = "192.168.235.143" # The IP that is printed in the serial monitor from the ESP32
+UDP_IP = "192.168.245.143" # The IP that is printed in the serial monitor from the ESP32
 SHARED_UDP_PORT = 4210
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Internet  # UDP
 sock.connect((UDP_IP, SHARED_UDP_PORT))
@@ -162,7 +162,7 @@ sock.connect((UDP_IP, SHARED_UDP_PORT))
 # Create the PyQtGraph application
 app = QApplication([])
 win = pg.GraphicsLayoutWidget(show=True)
-show = [3,4]
+show = [3]
 plot=[]
 orig_plot = []
 baseLine_plot=[]
@@ -170,11 +170,11 @@ alpha_plot=[]
 fft_plot=[]
 
 for i in show:
-    plot.append(win.addPlot(title=f'Channel {i}'))
-    orig_plot.append(win.addPlot(title=f'Original {i}'))
-    alpha_plot.append(win.addPlot(title=f'Decision {i}'))
+    plot.append(win.addPlot(title=f'Filtered {i}'))
+    orig_plot.append(win.addPlot(title=f'Raw {i}'))
+    win.nextRow()
+    alpha_plot.append(win.addPlot(title=f'Alpha {i}'))
     fft_plot.append(win.addPlot(title=f'FFT {i}'))
-    # baseLine_plot.append(win.addPlot(title=f'base_Line {i}'))
     win.nextRow()
 
 filtered_curve = []

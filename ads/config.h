@@ -15,9 +15,9 @@
 #define PIN_NUM_PWD 16 // active LOW
 #define PIN_NUM_CLKSEL 5 
 //SCLK = 12, MISO = 13, MOSI = 11, SS = 10
-#define VSPI_MISO   MISO
-#define VSPI_MOSI   MOSI
-#define VSPI_SCLK   SCK
+#define VSPI_MISO   13
+#define VSPI_MOSI   11
+#define VSPI_SCLK   12
 // #define VSPI_SS     SS 
 #define spiClk 5000000//2400000 //valid: 2.4 Mhz; to 1 MHz
 #define TCLK_cycle (1) //us for 1MHz SPIclk

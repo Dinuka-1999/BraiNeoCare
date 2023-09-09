@@ -2,19 +2,20 @@
 #include "config.h"   // Settings
 #include "ADS1299.hh" // own Lib
 
-#include <WebServer.h>
 #include <WiFi.h>
-#include <WiFiUdp.h>
 #include <FastLED.h>
 
 #define rgb_pin 48
 
-//set up to connect to an existing network (e.g. mobile hotspot from laptop that will run the python code)
-const char* ssid = "virus";
-const char* password = "nima12345";
-WiFiUDP Udp;
-unsigned int localUdpPort = 4210;  //  port to listen on
-char incomingPacket[255];  // buffer for incoming packets
+const char* ssid     = "BraiNeoCare";
+const char* password     = "braingroup13";
+const uint16_t portNumber = 50000; 
+IPAddress local_ip(192,168,4,21);
+IPAddress gateway(192,168,4,21);
+IPAddress subnet(255,255,255,0);
+WiFiServer server(portNumber);
+WiFiClient client;
+bool connected = false;
 
 struct lead_struct{
   int32_t l0;
@@ -40,113 +41,99 @@ bool data_ready = false;
 void setup()
 {
   Serial.begin(115200);
-  Serial.println("MOSI: ");
-  Serial.println(MOSI);
-  Serial.println("MISO: ");
-  Serial.println(MISO);
-  Serial.println("SCK: ");
-  Serial.println(SCK);
-  Serial.println("SS: ");
-  Serial.println(SS); 
   ESPmemcheck();
   ADS1.setup_master(PIN_NUM_DRDY_1, PIN_CS_1);
-  // ADS1.RESET();
-  // delay(50); // wait for clock to settle
   ADSerrorcheck();
-  // delay(50); // wait for clock to settle
-  digitalWrite(PIN_NUM_STRT, HIGH); // Synchronize Start of ADC's
-  ADS1.RDATAC();
+
   attachInterrupt(PIN_NUM_DRDY_1, DRDY_ISR, FALLING);
   
 
   FastLED.addLeds<WS2812, rgb_pin, GRB>(led,1);
   FastLED.setBrightness(20);
-  int status = WL_IDLE_STATUS;
-  WiFi.begin(ssid, password);
-  log_d("");
+
+  WiFi.mode(WIFI_AP);
+  WiFi.softAPConfig(local_ip, gateway, subnet);
+  WiFi.softAP(ssid, password);
+  IPAddress IP = WiFi.softAPIP();
+  Serial.print(" -> IP address: "); Serial.println(IP);
+  server.begin();
 
   led[0] = CRGB(255, 0, 0);FastLED.show();
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    log_d(".");
-  }
-  log_d("Connected to wifi");
-  Udp.begin(localUdpPort);
-  log_d("Now listening at IP %s, UDP port %d\n", WiFi.localIP().toString().c_str(), localUdpPort);
-  led[0] = CRGB(0, 0, 255);FastLED.show();
 
-  bool readPacket = false;
-  while (!readPacket) {
-    int packetSize = Udp.parsePacket();
-    if (packetSize)
-     {
-      log_d("Received %d bytes from %s, port %d\n", packetSize, Udp.remoteIP().toString().c_str(), Udp.remotePort());
-      int len = Udp.read(incomingPacket, 255);
-      if (len > 0)
-      {
-        incomingPacket[len] = 0;
-      }
-      log_d("UDP packet contents: %s\n", incomingPacket);
-      readPacket = true;
-    } 
-  }
-  led[0] = CRGB(0, 255, 0);FastLED.show();
-
-  // ADS1.activateTestSignals(CH1SET);
-  // ADS1.activateTestSignals(CH2SET);
-  // ADS1.activateTestSignals(CH3SET);
-  // ADS1.activateTestSignals(CH4SET);
-  // ADS1.activateTestSignals(CH5SET);
-  // ADS1.activateTestSignals(CH6SET);
-  // ADS1.activateTestSignals(CH7SET);
-  // ADS1.activateTestSignals(CH8SET);
 }
 
 void loop()
 {
-  if (data_ready == true)
-  {
-    results ADS_1;
-    ADS_1 = ADS1.updateResponder();
-    
-    leads.l0 = ADS_1.rawresults[0];
-    leads.l1 = ADS_1.rawresults[1];
-    leads.l2 = ADS_1.rawresults[2];
-    leads.l3 = ADS_1.rawresults[3];
-    leads.l4 = ADS_1.rawresults[4];
-    leads.l5 = ADS_1.rawresults[5];
-    leads.l6 = ADS_1.rawresults[6];
-    leads.l7 = ADS_1.rawresults[7];
-    leads.l8 = ADS_1.rawresults[8];
-    byte* data = (byte*)&leads;
-    Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
-    Udp.write(data, sizeof(float)*9);
-    Udp.endPacket();
+  
+  if (!connected) {
+    led[0] = CRGB(0, 0, 255);FastLED.show();
+    // listen for incoming clients
+    client = server.available();
+    if (client) {
+      Serial.println("Got a client !");
+      if (client.connected()) {
+        Serial.println("and it's connected!");
+        connected = true;
+        led[0] = CRGB(0, 255, 0);FastLED.show();
+        ADS1.START();
+        ADS1.RDATAC();
+      } else {
+        Serial.println("but it's not connected!");
+        client.stop();  // close the connection:
+      }
+    }
+  } else {
+    if (client.connected()) {
+      if (data_ready == true)
+      {
+        results ADS_1;
+        ADS_1 = ADS1.updateResponder();
+        
+        leads.l0 = ADS_1.rawresults[0];
+        leads.l1 = ADS_1.rawresults[1];
+        leads.l2 = ADS_1.rawresults[2];
+        leads.l3 = ADS_1.rawresults[3];
+        leads.l4 = ADS_1.rawresults[4];
+        leads.l5 = ADS_1.rawresults[5];
+        leads.l6 = ADS_1.rawresults[6];
+        leads.l7 = ADS_1.rawresults[7];
+        leads.l8 = ADS_1.rawresults[8];
+        byte* data = (byte*)&leads;
+        client.write(data, sizeof(float)*9);
 
-    // Serial.print(ADS_1.rawresults[0]);
-    // Serial.print(",");
-    // Serial.print(ADS_1.rawresults[1]);
-    // Serial.print(",");
-    // Serial.print(ADS_1.rawresults[2]);
-    // Serial.print(",");
-    // Serial.print(ADS_1.rawresults[3]);
-    // Serial.print(",");
-    // Serial.print(ADS_1.rawresults[4]);
-    // Serial.print(",");
-    // Serial.print(ADS_1.rawresults[5]);
-    // Serial.print(",");
-    // Serial.print(ADS_1.rawresults[6]);
-    // Serial.print(",");
-    // Serial.print(ADS_1.rawresults[7]);
-    // Serial.print(",");
-    // Serial.println(ADS_1.rawresults[8]);
+        // Serial.print(ADS_1.rawresults[0]);
+        // Serial.print(",");
+        // Serial.print(ADS_1.rawresults[1]);
+        // Serial.print(",");
+        // Serial.print(ADS_1.rawresults[2]);
+        // Serial.print(",");
+        // Serial.print(ADS_1.rawresults[3]);
+        // Serial.print(",");
+        // Serial.print(ADS_1.rawresults[4]);
+        // Serial.print(",");
+        // Serial.print(ADS_1.rawresults[5]);
+        // Serial.print(",");
+        // Serial.print(ADS_1.rawresults[6]);
+        // Serial.print(",");
+        // Serial.print(ADS_1.rawresults[7]);
+        // Serial.print(",");
+        // Serial.println(ADS_1.rawresults[8]);
 
-    data_ready = false;
+        data_ready = false;
+      }
+      if (ADS_connected == false)
+      {
+        Serial.println("ADS not connected");
+      }
+    } else {
+      ADS1.SDATAC();
+      ADS1.STOP();
+      Serial.println("Client is gone");
+      client.stop();  // close the connection:
+      connected = false;
+    }
   }
-  if (ADS_connected == false)
-  {
-    log_d("ADS not connected");
-  }
+  
 }
 
 void IRAM_ATTR DRDY_ISR(void)
@@ -156,20 +143,26 @@ void IRAM_ATTR DRDY_ISR(void)
 
 void ESPmemcheck()
 {
-  log_d("Total heap: %d", ESP.getHeapSize());
-  log_d("Free heap: %d", ESP.getFreeHeap());
-  log_d("Minimum free heap: %d", ESP.getMinFreeHeap());
-  log_d("Total PSRAM: %d", ESP.getPsramSize());
-  log_d("Free PSRAM: %d", ESP.getFreePsram());
+  Serial.print("Total heap: ");
+  Serial.println(ESP.getHeapSize());
+  Serial.print("Free heap: ");
+  Serial.println(ESP.getFreeHeap());
+  Serial.print("Minimum free heap: ");
+  Serial.println(ESP.getMinFreeHeap());
+  Serial.print("Total PSRAM: ");
+  Serial.println(ESP.getPsramSize());
+  Serial.print("Free PSRAM: ");
+  Serial.println(ESP.getFreePsram());
 }
 
 void ADSerrorcheck()
 {
   if (ADS1.getDeviceID() != 0b00111110)
   {
-    log_d("ADS1299 Nr.1 not found... restart \n");
-    log_d("Device id: %d", ADS1.getDeviceID());
-    delay(500);
+    Serial.println("ADS1299 Nr.1 not found... restart \n");
+    Serial.print("Device id: ");
+    Serial.println(ADS1.getDeviceID());
+    delay(2000);
     ESP.restart();
   }
   else

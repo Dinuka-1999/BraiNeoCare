@@ -27,10 +27,9 @@ ADS1299::ADS1299()
   outputCount = 0;
   // **** ----- SPI Setup ----- **** //
   // initialise instance of the SPIClass attached to VSPI
-  // SCLK = 18, MISO = 19, MOSI = 23, SS = 5
-  pinMode(SCK, OUTPUT);
-  pinMode(MOSI, OUTPUT);
-  pinMode(MISO, INPUT);
+  pinMode(VSPI_SCLK, OUTPUT);
+  pinMode(VSPI_MOSI, OUTPUT);
+  pinMode(VSPI_MISO, INPUT);
   // vspi = new SPIClass(VSPI);
 }
 
@@ -52,11 +51,11 @@ void ADS1299::setup_master(int _DRDY, int _CS)
   pinMode(DRDY, INPUT);
   // set up slave select pins as outputs as the Arduino API
   // doesn't handle automatically pulling SS low
-  digitalWrite(SCK, LOW);
-  digitalWrite(MOSI, LOW);
+  digitalWrite(VSPI_SCLK, LOW);
+  digitalWrite(VSPI_MOSI, LOW);
   //digitalWrite(SS, HIGH);
   // SPI Setup
-  SPI.begin(SCK, MISO, MOSI); // Initialize SPI library
+  SPI.begin(VSPI_SCLK, VSPI_MISO, VSPI_MOSI); // Initialize SPI library
   SPI.setBitOrder(MSBFIRST);  // Most significant Bit first
   SPI.setFrequency(spiClk);   // Sets SPI clock
   SPI.setDataMode(SPI_MODE1); //// 1...2.4 MHz, clock polarity = 0; clock phase = 1 (pg. 8)
@@ -91,8 +90,8 @@ void ADS1299::setup_master(int _DRDY, int _CS)
   WREG(CH6SET, 0b10000001);
   WREG(CH7SET, 0b10000001);
   WREG(CH8SET, 0b10000001);
-  // WREG(BIAS_SENSP, 0b00000110);
-  // WREG(BIAS_SENSN, 0b00000110);
+  WREG(BIAS_SENSP, 0b00000100);
+  WREG(BIAS_SENSN, 0b00000100);
 
 
   // WREG(CONFIG1, 0b10010110); //F5 Output CLK signal for second ADS, 500 SPS
@@ -127,11 +126,11 @@ void ADS1299::setup_slave(int _DRDY, int _CS)
 {
   CS = _CS;
   DRDY = _DRDY;
-  // Set direction register for SCK and MOSI pin.
-  // MISO pin automatically overrides to INPUT.
+  // Set direction register for VSPI_SCLK and VSPI_MOSI pin.
+  // VSPI_MISO pin automatically overrides to INPUT.
   // initialise vspi with default pins
-  // SCLK = 18, MISO = 19, MOSI = 23, SS = 5
-  SPI.begin(SCK, MISO, MOSI); // Initialize SPI library
+  // SCLK = 18, VSPI_MISO = 19, VSPI_MOSI = 23, SS = 5
+  SPI.begin(VSPI_SCLK, VSPI_MISO, VSPI_MOSI); // Initialize SPI library
   SPI.setBitOrder(MSBFIRST);  // Most significant Bit first
   SPI.setFrequency(spiClk);   // Sets SPI clock
   SPI.setDataMode(SPI_MODE1); //// 1...2.4 MHz, clock polarity = 0; clock phase = 1 (pg. 8)
@@ -140,8 +139,8 @@ void ADS1299::setup_slave(int _DRDY, int _CS)
   pinMode(CS, OUTPUT);
   // set up slave select pins as outputs as the Arduino API
   // doesn't handle automatically pulling SS low
-  digitalWrite(SCK, LOW);
-  digitalWrite(MOSI, LOW);
+  digitalWrite(VSPI_SCLK, LOW);
+  digitalWrite(VSPI_MOSI, LOW);
   //digitalWrite(SS, HIGH);
 
   delayMicroseconds(20 * TCLK_cycle); // Recommended 18 Tclk before using device

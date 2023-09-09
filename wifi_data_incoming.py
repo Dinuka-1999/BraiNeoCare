@@ -85,10 +85,10 @@ def menu():
     Checkbutton(bp_frame, text="Bandpass", variable=bp_check_var).pack(side=LEFT)
     Label(bp_frame, text="Range").pack(side=LEFT)
     bp_range_low = Entry(bp_frame)
-    bp_range_low.insert(0, "8")
+    bp_range_low.insert(0, "2")
     bp_range_low.pack(side=LEFT)
     bp_range_high = Entry(bp_frame)
-    bp_range_high.insert(0, "13")
+    bp_range_high.insert(0, "80")
     bp_range_high.pack(side=LEFT)
     Label(bp_frame, text="Order").pack(side=LEFT)
     bp_order = Entry(bp_frame)
@@ -154,9 +154,9 @@ def menu():
 
     mainloop()
 
-UDP_IP = "192.168.245.143" # The IP that is printed in the serial monitor from the ESP32
-SHARED_UDP_PORT = 4210
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Internet  # UDP
+UDP_IP = "192.168.4.21" # The IP that is printed in the serial monitor from the ESP32
+SHARED_UDP_PORT = 50000
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Internet  # UDP
 sock.connect((UDP_IP, SHARED_UDP_PORT))
 
 # Create the PyQtGraph application
@@ -192,11 +192,21 @@ ydata = np.zeros((len(show),1000))
 num_samples = 0
 rate = 250
 
+def recvall(sock, size):
+  data = bytearray()
+  while len(data) < size:
+    packet = sock.recv(size - len(data))
+    if not packet:
+      raise RuntimeError("Connection closed")
+    data.extend(packet)
+  return data
+
 def loop():
     global ydata,num_samples
     while True:
         # Receive UDP packet
-        data = sock.recv(4*9)
+        data = recvall(sock,4*9)
+        # print(data.decode())
         value = struct.unpack('iiiiiiiii', data)
 
         for i,j in enumerate(show):
@@ -207,37 +217,40 @@ def loop():
 
 def update_plot():
     for i in range(len(show)):
-        orig_curve[i].setData(y=ydata_avg[i][100:])
-        filtered_curve[i].setData(y=filtered[i][100:])
-        alpha_curve[i].setData(y=alpha[i][100:])
-        fft_curve[i].setData(y=yfft[i][0:1000//2], x=xfft)
+        orig_curve[i].setData(y=ydata[i])
+        filtered_curve[i].setData(y=filtered[i])
+        alpha_curve[i].setData(y=alpha[i])
+        fft_curve[i].setData(y=yfft[i][0:600//2], x=xfft)
 
 
 def filter():
     global rate, filtered, ydata_avg, alpha, yfft, xfft, mpb_kernel_var
     T = 1/rate
-    xfft = fftfreq(1000, T)[:1000//2]
+    xfft = fftfreq(600, T)[:600//2]
     while True:
         # if rate>80*2:
-        lowpass = signal.butter(lp_order_var, lp_range_var, 'lp', fs=rate, output='sos')
-        highpass = signal.butter(hp_order_var, hp_range_var, 'hp', fs=rate, output='sos')
-        bandstop = signal.butter(bs_order_var, [bs_range_low_var,bs_range_high_var], 'bandstop', fs=rate, output='sos')
-        bandstop2 = signal.butter(bs2_order_var, [bs2_range_low_var,bs2_range_high_var], 'bandstop', fs=rate, output='sos')
-        bandpass = signal.butter(bp_order_var, [bp_range_low_var,bp_range_high_var], 'bandpass', fs=rate, output='sos')
-        alphapass = signal.butter(ap_order_var, [ap_range_low_var,ap_range_high_var], 'bandpass', fs=rate, output='sos')
+
+
                 
         ydata_avg = ydata - np.mean(ydata,axis=1).reshape(-1,1)
         filtered_ = ydata_avg
         
         if lp_check_var.get() == 1:
+            lowpass = signal.butter(lp_order_var, lp_range_var, 'lp', fs=rate, output='sos')
             filtered_ = signal.sosfilt(lowpass, ydata_avg)
         if hp_check_var.get() == 1:
+            highpass = signal.butter(hp_order_var, hp_range_var, 'hp', fs=rate, output='sos')
             filtered_ = signal.sosfilt(highpass, filtered_)
         if bp_check_var.get() == 1:
-            filtered_ = signal.sosfilt(bandpass, filtered_)
+            # bandpass = signal.butter(bp_order_var, [bp_range_low_var,bp_range_high_var], 'bandpass', fs=rate, output='sos')
+            # filtered_ = signal.sosfilt(bandpass, filtered_)
+            bandpass = signal.cheby2(bp_order_var, 40, [bp_range_low_var,bp_range_high_var], 'bandpass', fs=rate, output='sos')
+            filtered_ = signal.sosfiltfilt(bandpass, filtered_)
         if bs_check_var.get() == 1:
+            bandstop = signal.butter(bs_order_var, [bs_range_low_var,bs_range_high_var], 'bandstop', fs=rate, output='sos')
             filtered_ = signal.sosfilt(bandstop, filtered_)
         if bs2_check_var.get() == 1:
+            bandstop2 = signal.butter(bs2_order_var, [bs2_range_low_var,bs2_range_high_var], 'bandstop', fs=rate, output='sos')
             filtered_ = signal.sosfilt(bandstop2, filtered_)
 
         if mpb_check_var.get() == 1:
@@ -253,8 +266,9 @@ def filter():
             for i in range(len(show)):
                 filtered_[i]=signal.medfilt(filtered_[i], kernel_size=mp_kernel_var)
 
-        filtered = filtered_
+        filtered = filtered_[:,200:800]
         
+        alphapass = signal.butter(ap_order_var, [ap_range_low_var,ap_range_high_var], 'bandpass', fs=rate, output='sos')
         alpha = signal.sosfilt(alphapass, filtered)
 
         yfft = np.abs(fft(filtered))

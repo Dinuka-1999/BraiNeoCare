@@ -1,2 +1,10 @@
 env
 test.py
+zenodo_data.npy
+zenodo_labels.npy
+new_signal_data.npy
+new_signal_labels.npy
+balanced_x_train.npy
+balanced_y_train.npy
+balanced_x_test.npy
+balanced_y_test.npy

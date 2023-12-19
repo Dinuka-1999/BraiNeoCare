@@ -9,3 +9,4 @@ balanced_y_train.npy
 balanced_x_test.npy
 balanced_y_test.npy
 Datasets
+wandb

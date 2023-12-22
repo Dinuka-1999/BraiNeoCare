@@ -42,29 +42,34 @@ sweep_config = {
             'values': [256, 128, 64, 32]
         },
         'dropout': {
-            'values': [0.2, 0.25, 0.3, 0.5, 0.7]
+            'values': [0.1, 0.2, 0.25, 0.3, 0.5]
         },
         'spatdropout': {
-            'values': [0.1, 0.2,0.25, 0.3,0.5]
+            'values': [0.1, 0.2, 0.25, 0.3, 0.5]
         },
         'learning_rate': {
-            'values': [ 0.001,0.002,0.0025, 0.005,0.01,0.1]
+            'values': [ 0.001, 0.002, 0.0025, 0.005, 0.01, 0.1]
         },
         'weight_decay': {
-            'values': [0.001,0.002,0.0025, 0.005,0.01,0.1]
+            'values': [ 0.001, 0.002, 0.0025, 0.005, 0.01, 0.1]
         },
         'optimizer': {
-            'values': ['adam', 'nadam', 'sgd', 'rmsprop']
+            'values': ['adam', 'nadam']
         },
         'activation': {
-            'values': ['relu', 'elu', 'selu', 'softmax', 'swish']
+            'values': ['relu', 'elu', 'swish']
+        },
+        'kernel_size': {
+            "values": [[3],[5],[7],[3,5],[3,7],[5,7],[3, 5, 7]]
         }
     }
 }
 
-sweep_id = wandb.sweep(sweep_config, project="BraiNeoCare_testing")
+sweep_id = wandb.sweep(sweep_config, project="BraiNeoCare_testing_2")
 
 def model_train():
+
+    keras.backend.clear_session()
 
     config_defaults = {
         'batch_size': 128,
@@ -73,8 +78,8 @@ def model_train():
         'learning_rate': 0.0025,
         'weight_decay': 0.01,
         'optimizer': 'adam',
-        'activation': 'relu'
-
+        'activation': 'relu',
+        'kernel_size': [3]
     }
     wandb.init(config=config_defaults)
     config = wandb.config
@@ -86,12 +91,10 @@ def model_train():
     x=layers.MaxPooling1D(4)(a)
     x=layers.SpatialDropout1D(config.spatdropout)(x) 
 
-    x=layers.Conv1D(64,3,padding="same",activation=config.activation)(x)   
-    y=layers.Conv1D(64,5,padding='same',activation=config.activation)(x)
-    a=layers.add([x,y])
+    for r in config.kernel_size:
+        x=layers.Conv1D(64,r,padding="same",activation=config.activation)(x) 
 
-
-    x=layers.GlobalAveragePooling1D()(a)
+    x=layers.GlobalAveragePooling1D()(x)
     x=layers.Dropout(config.dropout)(x)
     x=layers.Dense(32,activation=config.activation)(x) 
     x=layers.Dense(16,activation=config.activation)(x)
@@ -103,16 +106,16 @@ def model_train():
         optimizer=keras.optimizers.Adam(learning_rate=config.learning_rate,weight_decay=config.weight_decay)
     elif config.optimizer=='nadam':
         optimizer=keras.optimizers.Nadam(learning_rate=config.learning_rate,weight_decay=config.weight_decay)
-    elif config.optimizer=='sgd':
-        optimizer=keras.optimizers.SGD(learning_rate=config.learning_rate,weight_decay=config.weight_decay)
-    elif config.optimizer=='rmsprop':
-        optimizer=keras.optimizers.RMSprop(learning_rate=config.learning_rate,weight_decay=config.weight_decay)
+    # elif config.optimizer=='sgd':
+    #     optimizer=keras.optimizers.SGD(learning_rate=config.learning_rate,weight_decay=config.weight_decay)
+    # elif config.optimizer=='rmsprop':
+    #     optimizer=keras.optimizers.RMSprop(learning_rate=config.learning_rate,weight_decay=config.weight_decay)
 
     F1 = keras.metrics.FBetaScore()
     AUROC = keras.metrics.AUC(curve='ROC', name = 'AUROC')
     AUPRC = keras.metrics.AUC(curve='PR', name = 'AUPRC')
     model1.compile(optimizer=optimizer,loss='binary_crossentropy',metrics=['accuracy', F1, AUROC, AUPRC])
     early_stopping = EarlyStopping(monitor='val_accuracy', patience=10, mode='max',min_delta=0.01)
-    model1.fit(x_train,y_train,epochs=500,batch_size=config.batch_size,validation_data=(x_test,y_test),callbacks=[WandbCallback(),early_stopping],verbose=0)
+    model1.fit(x_train,y_train,epochs=500,batch_size=config.batch_size,validation_data=(x_test,y_test),callbacks=[WandbCallback(save_model=False,),early_stopping])
 
 wandb.agent(sweep_id, model_train)

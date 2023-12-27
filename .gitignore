@@ -9,4 +9,10 @@ balanced_y_train.npy
 balanced_x_test.npy
 balanced_y_test.npy
 Datasets
-wandb
+Saved_model_weights_4
+Saved_model_weights_5
+Saved_model_weights_6
+Saved_model_weights_7
+Saved_model_weights_8
+Saved_model_weights_9
+Saved_model_weights_10

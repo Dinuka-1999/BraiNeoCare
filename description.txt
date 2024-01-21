@@ -1,0 +1,11 @@
+GAT_model_94 - artifacts are there and model is similar to paper
+GAT_model_96 - artifacts are there and CNN has skip connections with 0.2 dropout (N=32,64  K=3,5)
+GAT_model_97 - artifacts are there and CNN has residual connections with 0.1 dropout (N=32,64  K=3,5)
+GAT_model_rem_art - artifacts are removed with *3000000 method and consists of residual connections (N=32,64  K=3,5)
+saved_model_weights_90 - basic CNN with 4s epochs
+saved_model_weights_93 - basic CNN with 12s epochs 
+
+history_GAT_94 - model is similar to which in the paper
+history_GAT_rem_art_1 - model is similar to which in the paper but has skip connections
+history_GAT_rem_art - our model (N=32,64  K=3,5)
+history_GAT_without_skip - our model without residual connections

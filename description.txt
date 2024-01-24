@@ -5,6 +5,9 @@ GAT_model_rem_art - artifacts are removed with *3000000 method and consists of r
 saved_model_weights_90 - basic CNN with 4s epochs
 saved_model_weights_93 - basic CNN with 12s epochs 
 
+
+all the followings are for artifacts removed signals 
+
 history_GAT_94 - model is similar to which in the paper
 history_GAT_rem_art_1 - model is similar to which in the paper but has skip connections
 history_GAT_rem_art - our model (N=32,64  K=3,5)

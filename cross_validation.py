@@ -8,6 +8,9 @@ import os
 import tensorflow_addons as tfa
 from keras import regularizers
 
+physical_devices = tf.config.list_physical_devices('GPU')
+tf.config.experimental.set_visible_devices(physical_devices[0], 'GPU')
+
 channel_names=["Fp1-T3","T3-O1","Fp1-C3","C3-O1","Fp2-C4","C4-O2","Fp2-T4","T4-O2","T3-C3","C3-Cz","Cz-C4","C4-T4"]
 indices =[[r,i] for r,c1 in enumerate(channel_names) for i,c2 in enumerate(channel_names) if (c1.split("-")[0]==c2.split("-")[1] or c1.split("-")[1]==c2.split("-")[1] 
           or c1.split("-")[0]==c2.split("-")[0] or c1.split("-")[1]==c2.split("-")[0])]
@@ -33,7 +36,7 @@ class GATLayer(layers.Layer):
         h2=tf.tile(tf.expand_dims(H, axis=2), [1,1,12,1])
         result =tf.concat([h1 , h2], axis=-1)
         e=self.Leakyrelu(tf.squeeze(tf.matmul(result, self.a),axis=-1))
-        zero_mat= -1e20*tf.ones_like(e)
+        zero_mat= -1e9*tf.ones_like(e)
         msked_e=tf.where(adj==1.0,e,zero_mat)
         alpha=tf.nn.softmax(msked_e,axis=-1)
         HPrime=tf.matmul(alpha,H)
@@ -59,7 +62,7 @@ def create_model():
 
     x= layers.Conv2D(8,(1,5),activation='relu',padding='same')(x)
     y= layers.SpatialDropout2D(0.2)(x)
-    y= layers.Conv2D(8,(1,7),activation='relu',padding='same')(y)
+    y= layers.Conv2D(8,(1,7),activation='relu',padding='same')(x)
     x= layers.add([x,y])
     x= layers.AveragePooling2D((1,2))(x)
     x= layers.BatchNormalization()(x)
@@ -67,7 +70,7 @@ def create_model():
 
     x= layers.Conv2D(1,(1,5),activation='relu',padding='same')(x)
     y= layers.SpatialDropout2D(0.2)(x)
-    y= layers.Conv2D(1,(1,7),activation='relu',padding='same')(y)
+    y= layers.Conv2D(1,(1,7),activation='relu',padding='same')(x)
     x= layers.add([x,y])
     x= layers.AveragePooling2D((1,2))(x)
     x= layers.Reshape((12,24))(x)
@@ -82,13 +85,13 @@ def create_model():
     x= layers.Dropout(0.2)(x)
     x= layers.Dense(16,activation='relu',kernel_regularizer=regularizer_dense)(x)
     x= layers.Dropout(0.2)(x)
-    x= layers.Dense(1,activation='sigmoid')(x)
+    x= layers.Dense(1,activation='sigmoid',kernel_regularizer=regularizer_dense)(x)
 
     model = keras.Model(inputs=Input, outputs=x)
 
-    optimizer=keras.optimizers.Adam(learning_rate=0.002)
+    optimizer=keras.optimizers.Adam(learning_rate=0.002,weight_decay=0.0001)
     loss=keras.losses.BinaryFocalCrossentropy(from_logits=False,gamma=2,alpha=0.4,apply_class_balancing=True)
-    # loss=keras.losses.BinaryCrossentropy(from_logits=False,label_smoothing=0.001)  
+    # loss=keras.losses.BinaryCrossentropy(from_logits=False)  
     kappa=tfa.metrics.CohenKappa(num_classes=2)
     fp=keras.metrics.FalsePositives()
     tn=keras.metrics.TrueNegatives()
@@ -142,11 +145,11 @@ fs_d=32
 order=7
 resampling_factor=fs_d/fs
 
-l_cut=16 #30
-h_cut=0.5 #1
+l_cut=30 #30
+h_cut=1 #1
 
-b_low,a_low=scipy.signal.butter(order,l_cut,'low',fs=fs)  #cheby2 20
-b_high,a_high=scipy.signal.butter(order,h_cut,'high',fs=fs) #cheby2 20
+b_low,a_low=scipy.signal.cheby2(order,20,l_cut,'low',fs=fs)  #cheby2 20
+b_high,a_high=scipy.signal.cheby2(order,20,h_cut,'high',fs=fs) #cheby2 20
 
 def bandpassFilter(signal1):
     lowpasss=scipy.signal.filtfilt(b_low,a_low,signal1,axis=1)
@@ -163,16 +166,15 @@ def check_consecutive_zeros(arr):
 folder='../BraiNeoCare/Datasets/zenodo_eeg/'
 files=os.listdir(folder)
 
-def read_data(low,high):
+def read_data(file_no):
     train_signals=[]
     train_seizure=[]
     test_signals=[]
     test_seizure=[]
-    c=1
     for file in files:
         if file.endswith('.edf'):
-            
-            s_Time,e_Time=find_seizure_time(int(file.split('.')[0][3:])) 
+            check_file_no=int(file.split('.')[0][3:])
+            s_Time,e_Time=find_seizure_time(check_file_no) 
 
             if (len(s_Time)!=0 ):
                 data = mne.io.read_raw_edf(folder+file,verbose=False)
@@ -198,7 +200,7 @@ def read_data(low,high):
                     partition=signal[:,l_bound:u_bound]
 
                     if np.any((s_Time*32>=l_bound) & (s_Time*32<=u_bound-1)):
-                        if low<=c<high:
+                        if file_no==check_file_no:
                             test_signals.append(partition)
                             test_seizure.append(1)
                         else:
@@ -210,7 +212,7 @@ def read_data(low,high):
                         l_bound+=32
 
                     elif np.any((l_bound<(e_Time*32-1)) & ((e_Time*32-1)<=(u_bound-1))):
-                        if low<=c<high:
+                        if file_no==check_file_no:
                             test_signals.append(partition)
                             test_seizure.append(1)
                         else:
@@ -221,7 +223,7 @@ def read_data(low,high):
                         l_bound+=32
 
                     elif (started and np.any((e_Time*32-1)>u_bound-1)):
-                        if low<=c<high:
+                        if file_no==check_file_no:
                             test_signals.append(partition)
                             test_seizure.append(1)
                         else:
@@ -233,7 +235,7 @@ def read_data(low,high):
                         if check_consecutive_zeros(signal1[:,l_bound//32*256:u_bound//32*256]):
                             pass
                         else:
-                            if low<=c<high:
+                            if file_no==check_file_no:
                                 test_signals.append(partition)
                                 test_seizure.append(0)
                             else:
@@ -241,7 +243,6 @@ def read_data(low,high):
                                 train_seizure.append(0)
                         u_bound+=64
                         l_bound+=64
-                c+=1
 
     test_signals=np.array(test_signals)
     test_seizure=np.array(test_seizure)
@@ -250,8 +251,10 @@ def read_data(low,high):
 
     return train_signals,train_seizure,test_signals,test_seizure
 
-for r in range(5):
-    x_train,y_train,x_test,y_test=read_data(r*8+1,(r+1)*8+1)
+file_order=[31, 39,  1, 25, 15, 77, 76,50, 73, 16, 51, 52, 44, 34, 47, 17, 11,  9, 66, 13, 40, 63, 19]
+c=17
+for r in file_order:
+    x_train,y_train,x_test,y_test=read_data(r)
     mean=x_train.mean()
     std=x_train.std()
     x_train=(x_train-mean)/std
@@ -260,17 +263,18 @@ for r in range(5):
     x_train=np.expand_dims(x_train,axis=-1)
     x_test=np.expand_dims(x_test,axis=-1)
 
-    np.random.seed(25)
+    np.random.seed(42)
     train_indices = np.arange(x_train.shape[0])
     np.random.shuffle(train_indices)
     x_train = x_train[train_indices]
     y_train = y_train[train_indices]
-    print(f"Start of {r}th fold")
+    print(f"Start of {c}th fold")
     model=create_model()
-    checkpoint_path = f"GAT_CV_{r}"+"/cp_{epoch:04d}.ckpt"
+    checkpoint_path = f"Saved_models/GAT_CV_39_{c}"+"/cp_{epoch:04d}.ckpt"
     checkpoint_dir = os.path.dirname(checkpoint_path) 
-    cp_callback=keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,save_weights_only=False,verbose=0,save_best_only=True,monitor='val_accuracy')
+    cp_callback=keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,save_weights_only=False,verbose=0,save_best_only=True,monitor='val_AUROC',mode='max')
     history=model.fit(x_train,y_train,epochs=50,batch_size=512,verbose=1,validation_data=(x_test,y_test),callbacks=[cp_callback]) 
-    with open(f"history_cv_{r}.jason", 'w') as f:
+    with open(f"History/history_cv_39_{c}.jason", 'w') as f:
         pd.DataFrame(history.history).to_json(f)
-    print(f"Done for {r}th fold")
+    print(f"Done for {c}th fold")
+    c+=1

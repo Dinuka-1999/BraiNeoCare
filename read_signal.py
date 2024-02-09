@@ -40,11 +40,11 @@ fs_d=32
 order=7
 resampling_factor=fs_d/fs
 
-l_cut=16
-h_cut=0.5
+l_cut=30
+h_cut=1
 
-b_low,a_low=scipy.signal.butter(order,l_cut,'low',fs=fs)
-b_high,a_high=scipy.signal.butter(order,h_cut,'high',fs=fs)
+b_low,a_low=scipy.signal.cheby2(order,20,l_cut,'low',fs=fs)
+b_high,a_high=scipy.signal.cheby2(order,20,h_cut,'high',fs=fs)
 
 def bandpassFilter(signal1):
     lowpasss=scipy.signal.filtfilt(b_low,a_low,signal1,axis=1)

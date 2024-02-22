@@ -99,6 +99,7 @@ def removeArtifacts(signal1):
     signal1=scipy.signal.resample_poly(clean_array,up=32,down=128,axis=1)
     return signal1
 
+# Channel names that need to be picked from the raw data
 channels_1_18=['EEG Fp1-Ref', 'EEG Fp2-Ref','EEG F3-Ref', 'EEG F4-Ref', 'EEG C3-Ref', 'EEG C4-Ref','EEG P3-Ref',
             'EEG P4-Ref','EEG O1-Ref', 'EEG O2-Ref','EEG F7-Ref','EEG F8-Ref', 'EEG T3-Ref', 'EEG T4-Ref','EEG T5-Ref', 'EEG T6-Ref','EEG Fz-Ref','EEG Cz-Ref','EEG Pz-Ref' ]
 channels_2_18=['EEG Fp1-REF', 'EEG Fp2-REF','EEG F3-REF', 'EEG F4-REF', 'EEG C3-REF', 'EEG C4-REF','EEG P3-REF',
@@ -109,7 +110,8 @@ channels_2_12=['EEG Fp1-REF', 'EEG Fp2-REF',  'EEG C3-REF', 'EEG C4-REF', 'EEG C
 
 channels={"121":channels_1_12,"122":channels_2_12,"181":channels_1_18,"182":channels_2_18}
 
-def read_file(file,n,plot_=False,number_of_channel=12,pre_processing=True):
+# Read the file and return the signal array with seizure time
+def read_a_file(file,n,plot_=False,number_of_channel=12,pre_processing=True):
     data = mne.io.read_raw_edf(file)
     try:
         data=data.pick_channels(channels[f"{number_of_channel}1"],ordered=True)
@@ -147,22 +149,18 @@ def read_file(file,n,plot_=False,number_of_channel=12,pre_processing=True):
         return signal,seizures
     else:
         return signal,s_Time,e_Time
-
-if __name__=="__main__":
-
-    folder='../BraiNeoCare/Datasets/zenodo_eeg/'
+    
+# Read all the files and save the signals and seizure time in the numpy file
+def read_data(folder,files,low,high):
     train_signals=[]
     train_seizure=[]
     test_signals=[]
     test_seizure=[]
-
-    files=os.listdir(folder)
-    np.random.shuffle(files)
     c=1
     for file in files:
         if file.endswith('.edf'):
 
-            signal1,s_Time,e_Time=read_file(folder+file,int(file.split('.')[0][3:]),pre_processing=False)
+            signal1,s_Time,e_Time=read_a_file(folder+file,int(file.split('.')[0][3:]),pre_processing=False)
 
             if (len(s_Time)!=0 ):
                 signal=downsample(signal1)
@@ -175,7 +173,7 @@ if __name__=="__main__":
                     partition=signal[:,l_bound:u_bound]
 
                     if np.any((s_Time*32>=l_bound) & (s_Time*32<=u_bound-1)):
-                        if 1<=c<=8:
+                        if low<=c<=high:
                             test_signals.append(partition)
                             test_seizure.append(1)
                         else:
@@ -187,7 +185,7 @@ if __name__=="__main__":
                         l_bound+=32
 
                     elif np.any((l_bound<(e_Time*32-1)) & ((e_Time*32-1)<=(u_bound-1))):
-                        if 1<=c<=8:
+                        if low<=c<=high:
                             test_signals.append(partition)
                             test_seizure.append(1)
                         else:
@@ -198,7 +196,7 @@ if __name__=="__main__":
                         l_bound+=32
 
                     elif (started and np.any((e_Time*32-1)>u_bound-1)):
-                        if 1<=c<=8:
+                        if low<=c<=high:
                             test_signals.append(partition)
                             test_seizure.append(1)
                         else:
@@ -210,7 +208,7 @@ if __name__=="__main__":
                         if check_consecutive_zeros(signal1[:,l_bound//32*256:u_bound//32*256]):
                             pass
                         else:
-                            if 1<=c<=8:
+                            if low<=c<=high:
                                 test_signals.append(partition)
                                 test_seizure.append(0)
                             else:
@@ -219,12 +217,21 @@ if __name__=="__main__":
                         u_bound+=64
                         l_bound+=64
                 c+=1
-            
 
     test_signals=np.array(test_signals)
     test_seizure=np.array(test_seizure)
     train_signals=np.array(train_signals)
     train_seizure=np.array(train_seizure)
+    return train_signals,train_seizure,test_signals,test_seizure
+
+
+if __name__=="__main__":
+
+    folder='../BraiNeoCare/Datasets/zenodo_eeg/'
+    files=os.listdir(folder)
+    np.random.shuffle(files)
+    train_signals,train_seizure,test_signals,test_seizure=read_data(folder,files,1,8)
+    
     np.save('../BraiNeoCare/Datasets/GAT/Artifacts_removed/testdata.npy',test_signals)
     np.save('../BraiNeoCare/Datasets/GAT/Artifacts_removed/testlabels.npy',test_seizure)
     np.save('../BraiNeoCare/Datasets/GAT/Artifacts_removed/traindata.npy',train_signals)

@@ -3,9 +3,9 @@
 #include "ADS1299.hh" // own Lib
 
 #include <WiFi.h>
-#include <FastLED.h>
 
-#define rgb_pin 48
+#define led_red 36
+#define led_green 35
 
 const char* ssid     = "BraiNeoCare";
 const char* password     = "braingroup13";
@@ -29,44 +29,50 @@ struct lead_struct{
   int32_t l8;
 };
 
+bool ADS_connected = false;
+bool data_ready = false;
 struct lead_struct leads;
-   led[1];
+int led_stat = 1;
 ADS1299 ADS1;
 void IRAM_ATTR DRDY_ISR(void);
 void ESPmemcheck();
 void ADSerrorcheck();
-bool ADS_connected = false;
-bool data_ready = false;
+void led_status();
 
 void setup()
 {
+  pinMode(led_green, OUTPUT);
+  pinMode(led_red, OUTPUT);
+  xTaskCreate(
+    led_status,
+    "led status",
+    1000,
+    NULL,
+    2,
+    NULL
+  );
+  led_stat = 1;
   Serial.begin(115200);
   ESPmemcheck();
   ADS1.setup_master(PIN_NUM_DRDY_1, PIN_CS_1);
   ADSerrorcheck();
 
   attachInterrupt(PIN_NUM_DRDY_1, DRDY_ISR, FALLING);
-  
-
-  FastLED.addLeds<WS2812, rgb_pin, GRB>(led,1);
-  FastLED.setBrightness(100);
 
   WiFi.mode(WIFI_AP);
   WiFi.softAPConfig(local_ip, gateway, subnet);
-  WiFi.softAP(ssid, password);
+  WiFi.softAP(ssid, password, 10, false, 1);
   IPAddress IP = WiFi.softAPIP();
   Serial.print(" -> IP address: "); Serial.println(IP);
   server.begin();
 
-  led[0] = CRGB(255, 0, 0);FastLED.show();
-
+  led_stat = 2;
 }
 
 void loop()
 {
   
   if (!connected) {
-    led[0] = CRGB(0, 0, 255);FastLED.show();
     // listen for incoming clients
     client = server.available();
     if (client) {
@@ -74,12 +80,20 @@ void loop()
       if (client.connected()) {
         Serial.println("and it's connected!");
         connected = true;
-        led[0] = CRGB(0, 255, 0);FastLED.show();
+        led_stat = 4;
         ADS1.START();
         ADS1.RDATAC();
       } else {
         Serial.println("but it's not connected!");
         client.stop();  // close the connection:
+      }
+    }
+    else{
+      if (WiFi.softAPgetStationNum()){
+        led_stat = 3;
+      }
+      else{
+        led_stat = 2;
       }
     }
   } else {
@@ -210,5 +224,35 @@ void ADSerrorcheck()
     Serial.print("LOFF_CONFIG4: ");
     Serial.println(ADS1.RREG(CONFIG4));
     ADS_connected = true;
+  }
+}
+
+void led_status(void * parameters){
+  while(1){
+    if (led_stat==1){
+      digitalWrite(led_red, HIGH);
+      vTaskDelay(1000 / portTICK_PERIOD_MS);
+      digitalWrite(led_red, LOW);
+    }
+    else if (led_stat==2)
+    {
+      digitalWrite(led_green, HIGH);
+      vTaskDelay(1000 / portTICK_PERIOD_MS);
+      digitalWrite(led_green, LOW);
+    }
+    else if (led_stat==3)
+    {
+      digitalWrite(led_red, HIGH);
+      vTaskDelay(100 / portTICK_PERIOD_MS);
+      digitalWrite(led_red, LOW);
+      vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+    else if (led_stat==4)
+    {
+      digitalWrite(led_green, HIGH);
+      vTaskDelay(100 / portTICK_PERIOD_MS);
+      digitalWrite(led_green, LOW);
+      vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
   }
 }

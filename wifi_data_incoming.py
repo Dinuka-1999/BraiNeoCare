@@ -162,7 +162,7 @@ sock.connect((UDP_IP, SHARED_UDP_PORT))
 # Create the PyQtGraph application
 app = QApplication([])
 win = pg.GraphicsLayoutWidget(show=True)
-show = [3]
+show = [1,2]
 plot=[]
 orig_plot = []
 baseLine_plot=[]
@@ -183,23 +183,31 @@ alpha_curve = []
 fft_curve = []
 color = ['b','g','r','c','b','g','r','c','b']
 for i in range(len(show)):
+    plot[i].setRange(yRange=[-0.02,0.02])
     filtered_curve.append(plot[i].plot(pen='g'))
     orig_curve.append(orig_plot[i].plot(pen='b'))
+    alpha_plot[i].setRange(yRange=[-0.01,0.01])
     alpha_curve.append(alpha_plot[i].plot(pen='r'))
+    fft_plot[i].setLogMode(False,True)
     fft_curve.append(fft_plot[i].plot(pen='c'))
-xdata = np.arange(1000)  # Number of data points to display on the plot
-ydata = np.zeros((len(show),1000))
-num_samples = 0
+    
+TIME = 4
 rate = 250
+cut_amount = 0
+
+n_points = 4*rate
+xdata = np.arange(n_points)  # Number of data points to display on the plot
+ydata = np.zeros((len(show),n_points))
+num_samples = 0
 
 def recvall(sock, size):
-  data = bytearray()
-  while len(data) < size:
-    packet = sock.recv(size - len(data))
-    if not packet:
-      raise RuntimeError("Connection closed")
-    data.extend(packet)
-  return data
+    data = bytearray()
+    while len(data) < size:
+        packet = sock.recv(size - len(data))
+        if not packet:
+            raise RuntimeError("Connection closed")
+        data.extend(packet)
+    return data
 
 def loop():
     global ydata,num_samples
@@ -207,26 +215,25 @@ def loop():
         # Receive UDP packet
         data = recvall(sock,4*9)
         # print(data.decode())
-        value = struct.unpack('iiiiiiiii', data)
-
+        value = np.array(struct.unpack('iiiiiiiii', data))
+        value = value*((5/24)/(2**23))*n_points
         for i,j in enumerate(show):
             ydata[i][:-1] = ydata[i][1:]
             ydata[i][-1] = value[j]
-
         num_samples += 1
 
 def update_plot():
     for i in range(len(show)):
-        orig_curve[i].setData(y=ydata[i])
+        orig_curve[i].setData(y=ydata_avg[i])
         filtered_curve[i].setData(y=filtered[i])
         alpha_curve[i].setData(y=alpha[i])
-        fft_curve[i].setData(y=yfft[i][0:600//2], x=xfft)
+        fft_curve[i].setData(y=yfft[i][0:(n_points-2*cut_amount)//2], x=xfft)
 
 
 def filter():
     global rate, filtered, ydata_avg, alpha, yfft, xfft, mpb_kernel_var
     T = 1/rate
-    xfft = fftfreq(600, T)[:600//2]
+    xfft = fftfreq((n_points-2*cut_amount), T)[:(n_points-2*cut_amount)//2]
     while True:
         # if rate>80*2:
 
@@ -266,7 +273,7 @@ def filter():
             for i in range(len(show)):
                 filtered_[i]=signal.medfilt(filtered_[i], kernel_size=mp_kernel_var)
 
-        filtered = filtered_[:,200:800]
+        filtered = filtered_[:,cut_amount:n_points-cut_amount]
         
         alphapass = signal.butter(ap_order_var, [ap_range_low_var,ap_range_high_var], 'bandpass', fs=rate, output='sos')
         alpha = signal.sosfilt(alphapass, filtered)

@@ -2,7 +2,6 @@ import tensorflow as tf
 from tensorflow import keras
 from keras import layers
 import numpy as np
-from sklearn.model_selection import train_test_split
 import cv2 as cv
 import tqdm
 
@@ -11,7 +10,7 @@ tf.config.experimental.set_visible_devices(physical_devices[1], 'GPU')
 
 x_train=np.load('Datasets/CHB/chb_data.npy')
 x_train=(x_train-x_train.mean())/x_train.std()
-print(x_train.shape)
+
 def transform1(signals):
     signals = np.flip(signals, axis=2)
     signals = np.roll(signals, 100, axis=2)
@@ -76,18 +75,21 @@ def CNN_encoder(Input):
     x= layers.add([x,y])
     x= layers.AveragePooling2D((1,2))(x)
     x= layers.BatchNormalization()(x)
+    x= layers.SpatialDropout2D(0.2)(x)
 
     x= layers.Conv2D(64,(1,5),activation='relu',padding='same')(x)
     y= layers.Conv2D(64,(1,7),activation='relu',padding='same')(x)
     x= layers.add([x,y])
     x= layers.AveragePooling2D((1,2))(x)
     x= layers.BatchNormalization()(x)
+    x= layers.SpatialDropout2D(0.2)(x)
 
     x= layers.Conv2D(8,(1,5),activation='relu',padding='same')(x)
     y= layers.Conv2D(8,(1,7),activation='relu',padding='same')(x)
     x= layers.add([x,y])
     x= layers.AveragePooling2D((1,2))(x)
     x= layers.BatchNormalization()(x)
+    x= layers.SpatialDropout2D(0.2)(x)
 
     x= layers.Conv2D(1,(1,5),activation='relu',padding='same')(x)
     y= layers.Conv2D(1,(1,7),activation='relu',padding='same')(x)
@@ -97,6 +99,7 @@ def CNN_encoder(Input):
 
 def projection_head(encoder):
     x=layers.Dense(128,activation='relu')(encoder)
+    x=layers.Dropout(0.2)(x)
     x=layers.Dense(64)(x)
     return x
 
@@ -110,8 +113,8 @@ projection2=projection_head(encoder2)
 model=keras.Model(inputs=[Input1,Input2],outputs=[projection1,projection2]) 
 
 optimizer=keras.optimizers.Adam(learning_rate=0.0005)
-for epoch in range (200):
-    for i in tqdm.tqdm(range(0,X_train_T1.shape[0],512),desc=f"epoch {epoch+1}/200"):
+for epoch in range (1000):
+    for i in tqdm.tqdm(range(0,X_train_T1.shape[0],512),desc=f"epoch {epoch+1}/1000"):
         with tf.GradientTape() as tape:
             hidden1,hidden2=model([X_train_T1[i:i+512],X_train_T2[i:i+512]])
             loss=contrastive_loss(1)(hidden1,hidden2)

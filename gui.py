@@ -11,19 +11,25 @@ import struct
 from scipy import signal
 import os
 import sys
+import tensorflow as tf
+import Read_Data as rd
+import cv2
+import tensorflow_addons as tfa
 
 class BraiNeoCareGUI(QtWidgets.QWidget):
     def __init__(self):
-        self.CHANNEL8 = [1,2,3,4,5,6,7,8]
+        self.CHANNEL9 = [1,2,3,4,5,6,7,8,9]
         self.CHANNEL12 = ['Fp1-T3', 'Fp1-C3', 'Fp2-C4', 'Fp2-T4', 'T3-C3', 'C3-Cz', 'Cz-C4', 'C4-T4', 'T3-O1', 'C3-O1', 'C4-O2', 'T4-O2']
-        # self.CHANNEL12 = [1,2,3,4,5,6,7,8,9,10,11,12]
-        self.TIME_LENGTH = 4
-        self.RATE = 250
+        self.mean_std=np.load('mean_std.npy')
+        self.mean=self.mean_std[0]
+        self.std=self.mean_std[1]
+        self.TIME_LENGTH = 12
+        self.RATE = 256
         self.NUM_SAMPLES = self.TIME_LENGTH*self.RATE
         self.record_status = False
         self.get_data_status = False
-        self.data_ch8 = np.zeros((len(self.CHANNEL8),self.NUM_SAMPLES))
-        self.data_ch8_filtered = np.zeros((len(self.CHANNEL8),self.NUM_SAMPLES))
+        self.data_ch9 = np.zeros((len(self.CHANNEL9),self.NUM_SAMPLES))
+        self.data_ch9_filtered = np.zeros((len(self.CHANNEL9),self.NUM_SAMPLES))
         self.data_ch12 = np.zeros((len(self.CHANNEL12),self.NUM_SAMPLES))
         self.data_ch12_filtered = np.zeros((len(self.CHANNEL12),self.NUM_SAMPLES))
         QtWidgets.QWidget.__init__(self)
@@ -61,6 +67,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
             dict(name='Live Run', type='group', children=[
                 dict(name='Start', type='action'),
                 dict(name='Stop', type='action'),
+                dict(name='Detect', type='action'),
                 dict(name='Record', type='action'),
                 dict(name='Stop Recording', type='action')
             ]),
@@ -71,6 +78,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         self.params.param('Clear').sigActivated.connect(self.clear)
         self.params.param('Live Run', 'Start').sigActivated.connect(self.start_live_run)
         self.params.param('Live Run', 'Stop').sigActivated.connect(self.clear)
+        self.params.param('Live Run', 'Detect').sigActivated.connect(self.detect)
         self.params.param('Live Run', 'Record').sigActivated.connect(self.record)
         self.params.param('Live Run', 'Stop Recording').sigActivated.connect(self.stop_record)
         self.params.param('Load').sigActivated.connect(self.load)
@@ -78,16 +86,16 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
     def check_connectivity(self):
         self.clear()
         self.plots=[]
-        for i in self.CHANNEL8:
+        for i in self.CHANNEL9:
             self.plots.append(self.main_plots.addPlot(title=f'Channel {i}'))
             self.main_plots.nextRow()
         self.curves=[]
-        for i in range(len(self.CHANNEL8)):
+        for i in range(len(self.CHANNEL9)):
             self.curves.append(self.plots[i].plot())
 
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update_plot_connectivity)
-        self.timer.start(50)  # Update every 50 ms
+        self.timer.start(0)  # Update every 50 ms
 
         self.get_data_status = True
         self.get_data_thread = threading.Thread(target=self.get_data)
@@ -102,8 +110,8 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
             self.get_data_status = False
             self.get_data_thread.join()
 
-        self.data_ch8 = np.zeros((len(self.CHANNEL8),self.NUM_SAMPLES))
-        self.data_ch8_filtered = np.zeros((len(self.CHANNEL8),self.NUM_SAMPLES))
+        self.data_ch9 = np.zeros((len(self.CHANNEL9),self.NUM_SAMPLES))
+        self.data_ch9_filtered = np.zeros((len(self.CHANNEL9),self.NUM_SAMPLES))
         self.data_ch12 = np.zeros((len(self.CHANNEL12),self.NUM_SAMPLES))
         self.data_ch12_filtered = np.zeros((len(self.CHANNEL12),self.NUM_SAMPLES))
 
@@ -123,12 +131,29 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
 
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update_plot_live_run)
-        self.timer.start(50)  # Update every 50 ms
+        self.timer.start(0)  # Update every 50 ms
 
         self.get_data_status = True
         self.get_data_thread = threading.Thread(target=self.get_data)
         self.get_data_thread.start()
-        
+
+    def detect(self):
+        self.inference_thread = threading.Thread(target=self.inference_loop)
+        self.inference_thread.start()
+
+    def inference_loop(self):
+        while self.get_data_status:
+            self.downsampled_signal = signal.resample(self.data_ch12_filtered, 384,axis=1)
+            self.PreprocesSignal(self.downsampled_signal)
+            self.explainability(self.exp_model, self.processed_signal)
+            self.update_gui_with_inference_results(self.prediction, self.heatmap)
+            time.sleep(1/self.RATE)
+
+    def update_gui_with_inference_results(self, prediction, heatmap):
+        # print(1 if prediction>0.5 else 0)
+        print(prediction)
+        self.heatmap1 = cv2.resize(heatmap, (384,12), interpolation=cv2.INTER_LINEAR)
+
     def record(self):
         #write data to csv file
         if not os.path.exists('recordings'):
@@ -166,8 +191,8 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
             self.curves[i].setData(data[:,i])
 
     def update_plot_connectivity(self):
-        for i in range(len(self.CHANNEL8)):
-            self.curves[i].setData(self.data_ch8_filtered[i])
+        for i in range(len(self.CHANNEL9)):
+            self.curves[i].setData(self.data_ch9_filtered[i])
 
     def update_plot_live_run(self):
         for i in range(len(self.CHANNEL12)):
@@ -175,22 +200,41 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         if self.record_status:
             self.writer.writerow(self.data_ch12_filtered[:,-1])
     
+    def PreprocesSignal(self,signal1):
+        self.signal2=(signal1-self.mean)/self.std
+        self.signal2=np.expand_dims(self.signal2,axis=-1)
+        self.processed_signal=np.expand_dims(self.signal2,axis=0)
+    
+    def explainability(self,exp_model,EEG):
+        with tf.GradientTape() as tape:
+            GAT_outputs, predictions = exp_model(EEG)
+            Class=predictions[:,0]
+
+        grads = tape.gradient(Class, GAT_outputs)
+        heatmap = GAT_outputs[0] *  tf.reduce_mean(grads, axis=(0,1,2))
+        self.heatmap = (tf.nn.relu(heatmap)/tf.reduce_max(heatmap)).numpy()
+        self.prediction=tf.nn.sigmoid(predictions[0][0]).numpy()
+
     def get_data(self):
-        
-        b, a = signal.cheby2(2, 40, [0.05,30], 'bandpass', fs=self.RATE)
-        global z8,z12
-        z8 = np.transpose(np.expand_dims(signal.lfilter_zi(b, a), axis=-1) * np.expand_dims(self.data_ch8[:,-1], axis=0))
+
+        # self.detect()
+        EEG,s_time,e_time = rd.read_a_file('./Datasets/zenodo_eeg/eeg1.edf',1,pre_processing=False)
+        b, a = signal.cheby2(7, 20, [1,30], 'bandpass', fs=self.RATE)
+        print(s_time,e_time)
+        global z9,z12
+        z9 = np.transpose(np.expand_dims(signal.lfilter_zi(b, a), axis=-1) * np.expand_dims(self.data_ch9[:,-1], axis=0))
         z12 = np.transpose(np.expand_dims(signal.lfilter_zi(b, a), axis=-1) * np.expand_dims(self.data_ch12[:,-1], axis=0))
-        
+
         def filter_data():
-            global z8,z12
-            self.data_ch8_filtered[:,:-1] = self.data_ch8_filtered[:,1:]
-            filtered_data, z8 = signal.lfilter(b, a, np.expand_dims(self.data_ch8[:,-1], axis=-1), zi=z8)
-            self.data_ch8_filtered[:,-1] = filtered_data[:,0]
+            global z9,z12
+            self.data_ch9_filtered[:,:-1] = self.data_ch9_filtered[:,1:]
+            filtered_data, z9 = signal.lfilter(b, a, np.expand_dims(self.data_ch9[:,-1], axis=-1), zi=z9)
+            self.data_ch9_filtered[:,-1] = filtered_data[:,0]
 
             self.data_ch12_filtered[:,:-1] = self.data_ch12_filtered[:,1:]
             filtered_data, z12 = signal.lfilter(b, a, np.expand_dims(self.data_ch12[:,-1], axis=-1), zi=z12)
             self.data_ch12_filtered[:,-1] = filtered_data[:,0]
+
         # def recvall(sock, size):
         #     data = bytearray()
         #     while len(data) < size:
@@ -211,37 +255,55 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         #     print(latest_data.decode())
         #     value = np.array(struct.unpack('iiiiiiiii', latest_data))
         #     value = value*((2*5/24)/(2**24))*1000 # page 38 ads1299 datasheet
-        #     self.data_ch8[:,:-1] = self.data_ch8[:,1:]
-        #     self.data_ch8[:,-1] = value
+        #     self.data_ch9[:,:-1] = self.data_ch9[:,1:]
+        #     self.data_ch9[:,-1] = value
+        
 
+        # while self.get_data_status:
+        #     self.data_ch9[:,:-1] = self.data_ch9[:,1:]
+        #     self.data_ch9[:,-1] = np.random.rand(9)
+            
+        #     self.data_ch12[:,:-1] = self.data_ch12[:,1:]
+        #     self.data_ch12[:,-1] = [self.data_ch9[1,-1]-self.data_ch9[2,-1],
+        #                             self.data_ch9[1,-1]-self.data_ch9[3,-1],
+        #                             self.data_ch9[1,-1]-self.data_ch9[4,-1],
+        #                             self.data_ch9[1,-1]-self.data_ch9[5,-1],
+        #                             self.data_ch9[1,-1]-self.data_ch9[6,-1],
+        #                             self.data_ch9[1,-1]-self.data_ch9[7,-1],
+        #                             self.data_ch9[2,-1]-self.data_ch9[3,-1],
+        #                             self.data_ch9[2,-1]-self.data_ch9[4,-1],
+        #                             self.data_ch9[2,-1]-self.data_ch9[5,-1],
+        #                             self.data_ch9[2,-1]-self.data_ch9[6,-1],
+        #                             self.data_ch9[2,-1]-self.data_ch9[7,-1],
+        #                             self.data_ch9[3,-1]-self.data_ch9[4,-1]]
+            
+        #     threading.Thread(target=filter_data).start()
+        #     time.sleep(1/self.RATE)
+        l=0
         while self.get_data_status:
-            self.data_ch8[:,:-1] = self.data_ch8[:,1:]
-            self.data_ch8[:,-1] = np.random.rand(8)
+            self.data_ch9[:,:-1] = self.data_ch9[:,1:]
+            self.data_ch9[:,-1] = np.random.rand(9)
             
             self.data_ch12[:,:-1] = self.data_ch12[:,1:]
-            self.data_ch12[:,-1] = [self.data_ch8[1,-1]-self.data_ch8[2,-1],
-                                    self.data_ch8[1,-1]-self.data_ch8[3,-1],
-                                    self.data_ch8[1,-1]-self.data_ch8[4,-1],
-                                    self.data_ch8[1,-1]-self.data_ch8[5,-1],
-                                    self.data_ch8[1,-1]-self.data_ch8[6,-1],
-                                    self.data_ch8[1,-1]-self.data_ch8[7,-1],
-                                    self.data_ch8[2,-1]-self.data_ch8[3,-1],
-                                    self.data_ch8[2,-1]-self.data_ch8[4,-1],
-                                    self.data_ch8[2,-1]-self.data_ch8[5,-1],
-                                    self.data_ch8[2,-1]-self.data_ch8[6,-1],
-                                    self.data_ch8[2,-1]-self.data_ch8[7,-1],
-                                    self.data_ch8[3,-1]-self.data_ch8[4,-1]]
+            self.data_ch12[:,-1] = EEG[:,l]
             
             threading.Thread(target=filter_data).start()
             time.sleep(1/self.RATE)
+            l+=1
+            if l>=len(EEG[0]):
+                self.get_data_status = False
+        
 
     def closeEvent(self, event):
         os._exit(0)
 
-
 if __name__ == '__main__':
+    model = tf.keras.models.load_model("GAT_correct_7/cp_23.ckpt")
+    model.layers[-1].activation = None
+    exp_model=tf.keras.Model(model.inputs,[model.get_layer("gat_layer_5").output,model.output])
     app = pg.mkQApp()
     win = BraiNeoCareGUI()
+    win.exp_model = exp_model
     win.setWindowTitle("BraiNeoCare")
     win.showMaximized()
     # win.resize(1100,700)

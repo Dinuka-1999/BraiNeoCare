@@ -95,7 +95,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
 
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update_plot_connectivity)
-        self.timer.start(0)  # Update every 50 ms
+        self.timer.start(100)  # Update every 100 ms
 
         self.get_data_status = True
         self.get_data_thread = threading.Thread(target=self.get_data)
@@ -131,7 +131,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
 
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update_plot_live_run)
-        self.timer.start(0)  # Update every 50 ms
+        self.timer.start(100)  # Update every 100 ms
 
         self.get_data_status = True
         self.get_data_thread = threading.Thread(target=self.get_data)
@@ -224,8 +224,9 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         global z9,z12
         z9 = np.transpose(np.expand_dims(signal.lfilter_zi(b, a), axis=-1) * np.expand_dims(self.data_ch9[:,-1], axis=0))
         z12 = np.transpose(np.expand_dims(signal.lfilter_zi(b, a), axis=-1) * np.expand_dims(self.data_ch12[:,-1], axis=0))
-
+        # time to run one iteration of the loop
         def filter_data():
+
             global z9,z12
             self.data_ch9_filtered[:,:-1] = self.data_ch9_filtered[:,1:]
             filtered_data, z9 = signal.lfilter(b, a, np.expand_dims(self.data_ch9[:,-1], axis=-1), zi=z9)
@@ -281,17 +282,23 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         #     time.sleep(1/self.RATE)
         l=0
         while self.get_data_status:
-            self.data_ch9[:,:-1] = self.data_ch9[:,1:]
-            self.data_ch9[:,-1] = np.random.rand(9)
+            s=time.time()
+            np.roll(self.data_ch9, -1, axis=1)
+            # self.data_ch9[:,:-1] = self.data_ch9[:,1:]
+            self.data_ch9[:,-1] = EEG[0:9,l]
             
-            self.data_ch12[:,:-1] = self.data_ch12[:,1:]
+            np.roll(self.data_ch12, -1, axis=1)
+            # self.data_ch12[:,:-1] = self.data_ch12[:,1:]
             self.data_ch12[:,-1] = EEG[:,l]
-            
+            # filter_data()
             threading.Thread(target=filter_data).start()
-            time.sleep(1/self.RATE)
             l+=1
             if l>=len(EEG[0]):
                 self.get_data_status = False
+            # time.sleep(1/self.RATE)
+            # e=time.time()
+            # new_time = time.time()
+            # print(e-s)
         
 
     def closeEvent(self, event):

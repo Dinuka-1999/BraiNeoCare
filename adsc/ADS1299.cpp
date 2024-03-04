@@ -59,43 +59,6 @@ void ADS1299::setup_master(int _DRDY, int _CS)
   RESET();
   SDATAC();                           // DEVICE wakes up in RDATAC so no Registers could be written.
   delayMicroseconds(20 * TCLK_cycle); // Recommended 18 Tclk before using device
-  // Setup Registers for master ADS
-  // CLOCK: CLKSEL pin 1 (through R1); COnf1 1111 0xxx
-  WREG(CONFIG3, 0b11101100);    // b’x1xx 1100  Turn on BIAS amplifier, set internal BIASREF voltage
-  delay(1000); // wait for oscillator startup 20us
-  WREG(CONFIG1, 0x96); //F5 Output CLK signal for second ADS, 500 SPS
-  WREG(CONFIG2, 0xD4); //F5 Output CLK signal for second ADS, 500 SPS
-  WREG(CH1SET, 0b01100000);
-  WREG(CH2SET, 0b01100000);
-  WREG(CH3SET, 0b01100000);
-  WREG(CH4SET, 0b01100000); //0b00000101
-  WREG(CH5SET, 0b01100000);
-  WREG(CH6SET, 0b01100000);
-  WREG(CH7SET, 0b01100000);
-  WREG(CH8SET, 0b01100000); //0b10000001
-  WREG(BIAS_SENSP, 0b11111111);
-  WREG(BIAS_SENSN, 0b11111111);
-  WREG(MISC1, 0b00100000); 
-
-  // WREG(CONFIG1, 0b10010110); //F5 Output CLK signal for second ADS, 500 SPS
-  // // WREG(CONFIG2, 0b11010000); //F5 Output CLK signal for second ADS, 500 SPS
-  // WREG(CONFIG2, 0xD0); //F5 Output CLK signal for second ADS, 500 SPS
-  // // WREG(CONFIG3, 0b11101100);    // b’x1xx 1100  Turn on BIAS amplifier, set internal BIASREF voltage
-  // delayMicroseconds(20 * TCLK_cycle); // Recommended 18 Tclk before using device
-  // WREG(CH1SET, 0b01010000);
-  // // WREG(CH2SET, 0b01010000);
-  // WREG(CH2SET, 0x05);
-  // WREG(CH3SET, 0b01010000);
-  // WREG(CH4SET, 0b01010000);
-  // WREG(CH5SET, 0b01010000);
-  // WREG(CH6SET, 0b01010000);
-  // WREG(CH7SET, 0b01010000);
-  // WREG(CH8SET, 0b01010000);
-  // WREG(BIAS_SENSN, 0b00000010); // CH1 - bias sensing-> all REFELEC
-  // WREG(BIAS_SENSP, 0b00000010); // CH1 + bias sensing
-  // WREG(MISC1, 0x00);      // connect SRB1 to neg Electrodes
-  // Give slave time to react to external CLK
-  // delayMicroseconds(20 * TCLK_cycle); // Recommended 18 Tclk before using device
   
 }
 

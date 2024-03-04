@@ -29,6 +29,7 @@ struct lead_struct{
   int32_t l8;
 };
 
+
 bool ADS_connected = false;
 bool data_ready = false;
 struct lead_struct leads;
@@ -57,7 +58,7 @@ void setup()
   ADS1.setup_master(PIN_NUM_DRDY_1, PIN_CS_1);
   ADSerrorcheck();
 
-  attachInterrupt(PIN_NUM_DRDY_1, DRDY_ISR, FALLING);
+  // attachInterrupt(PIN_NUM_DRDY_1, DRDY_ISR, FALLING);
 
   WiFi.mode(WIFI_AP);
   WiFi.softAPConfig(local_ip, gateway, subnet);
@@ -80,6 +81,24 @@ void loop()
       if (client.connected()) {
         Serial.println("and it's connected!");
         connected = true;
+
+        ADS1.WREG(CONFIG3, client.readStringUntil('\n').toInt());    // b’x1xx 1100  Turn on BIAS amplifier, set internal BIASREF voltage
+        delay(100); // wait for oscillator startup 20us
+        ADS1.WREG(CONFIG1, client.readStringUntil('\n').toInt()); //F5 Output CLK signal for second ADS, 500 SPS
+        ADS1.WREG(CONFIG2, client.readStringUntil('\n').toInt()); //F5 Output CLK signal for second ADS, 500 SPS
+        ADS1.WREG(CH1SET, client.readStringUntil('\n').toInt());
+        ADS1.WREG(CH2SET, client.readStringUntil('\n').toInt());
+        ADS1.WREG(CH3SET, client.readStringUntil('\n').toInt());
+        ADS1.WREG(CH4SET, client.readStringUntil('\n').toInt()); //0b00000101
+        ADS1.WREG(CH5SET, client.readStringUntil('\n').toInt());
+        ADS1.WREG(CH6SET, client.readStringUntil('\n').toInt());
+        ADS1.WREG(CH7SET, client.readStringUntil('\n').toInt());
+        ADS1.WREG(CH8SET, client.readStringUntil('\n').toInt()); //0b10000001
+        ADS1.WREG(BIAS_SENSP, client.readStringUntil('\n').toInt());
+        ADS1.WREG(BIAS_SENSN, client.readStringUntil('\n').toInt());
+        ADS1.WREG(MISC1, client.readStringUntil('\n').toInt()); 
+        delay(100);
+
         led_stat = 4;
         ADS1.START();
         ADS1.RDATAC();
@@ -96,7 +115,8 @@ void loop()
         led_stat = 2;
       }
     }
-  } else {
+  } 
+  else {
     if (client.connected()) {
       if (data_ready == true)
       {
@@ -182,47 +202,47 @@ void ADSerrorcheck()
   else
   {
     Serial.print("ID: ");
-    Serial.println(ADS1.RREG(ID));
+    Serial.println(ADS1.RREG(ID), BIN);
     Serial.print("CONFIG1: ");
-    Serial.println(ADS1.RREG(CONFIG1));
+    Serial.println(ADS1.RREG(CONFIG1), BIN);
     Serial.print("CONFIG2: ");
-    Serial.println(ADS1.RREG(CONFIG2));
+    Serial.println(ADS1.RREG(CONFIG2), BIN);
     Serial.print("CONFIG3: ");
-    Serial.println(ADS1.RREG(CONFIG3));
+    Serial.println(ADS1.RREG(CONFIG3), BIN);
     Serial.print("LOFF: ");
-    Serial.println(ADS1.RREG(LOFF));
+    Serial.println(ADS1.RREG(LOFF), BIN);
     Serial.print("CH1SET: ");
-    Serial.println(ADS1.RREG(CH1SET));
+    Serial.println(ADS1.RREG(CH1SET), BIN);
     Serial.print("CH2SET: ");
-    Serial.println(ADS1.RREG(CH2SET));
+    Serial.println(ADS1.RREG(CH2SET), BIN);
     Serial.print("CH3SET: ");
-    Serial.println(ADS1.RREG(CH3SET));
+    Serial.println(ADS1.RREG(CH3SET), BIN);
     Serial.print("CH4SET: ");
-    Serial.println(ADS1.RREG(CH4SET));
+    Serial.println(ADS1.RREG(CH4SET), BIN);
     Serial.print("CH5SET: ");
-    Serial.println(ADS1.RREG(CH5SET));
+    Serial.println(ADS1.RREG(CH5SET), BIN);
     Serial.print("CH6SET: ");
-    Serial.println(ADS1.RREG(CH6SET));
+    Serial.println(ADS1.RREG(CH6SET), BIN);
     Serial.print("CH7SET: ");
-    Serial.println(ADS1.RREG(CH7SET));
+    Serial.println(ADS1.RREG(CH7SET), BIN);
     Serial.print("CH8SET: ");
-    Serial.println(ADS1.RREG(CH8SET));
+    Serial.println(ADS1.RREG(CH8SET), BIN);
     Serial.print("BIAS_SENSP: ");
-    Serial.println(ADS1.RREG(BIAS_SENSP));
+    Serial.println(ADS1.RREG(BIAS_SENSP), BIN);
     Serial.print("BIAS_SENSN: ");
-    Serial.println(ADS1.RREG(BIAS_SENSN));
+    Serial.println(ADS1.RREG(BIAS_SENSN), BIN);
     Serial.print("LOFF_FLIP: ");
-    Serial.println(ADS1.RREG(LOFF_FLIP));
+    Serial.println(ADS1.RREG(LOFF_FLIP), BIN);
     Serial.print("LOFF_STATP: ");
-    Serial.println(ADS1.RREG(LOFF_STATP));
+    Serial.println(ADS1.RREG(LOFF_STATP), BIN);
     Serial.print("LOFF_STATN: ");
-    Serial.println(ADS1.RREG(LOFF_STATN));
+    Serial.println(ADS1.RREG(LOFF_STATN), BIN);
     Serial.print("LOFF_GPIO: ");
-    Serial.println(ADS1.RREG(GPIO));
+    Serial.println(ADS1.RREG(GPIO), BIN);
     Serial.print("LOFF_MISC1: ");
-    Serial.println(ADS1.RREG(MISC1));
+    Serial.println(ADS1.RREG(MISC1), BIN);
     Serial.print("LOFF_CONFIG4: ");
-    Serial.println(ADS1.RREG(CONFIG4));
+    Serial.println(ADS1.RREG(CONFIG4), BIN);
     ADS_connected = true;
   }
 }

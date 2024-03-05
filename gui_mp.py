@@ -12,10 +12,15 @@ from scipy import signal
 import os
 import multiprocessing as mp
 import subprocess
+import tensorflow as tf
+import tensorflow_addons as tfa
+import cv2
 
-global RATE, record_status_mp, get_data_status, data_ch8_mp, data_ch8_filtered_mp, data_ch12_mp, data_ch12_filtered_mp, new_sample_count_mp, lock
+global RATE, record_status_mp, get_data_status, data_ch8_mp, data_ch8_filtered_mp, data_ch12_mp, data_ch12_filtered_mp, new_sample_count_mp
+global lock,heatmaps_mp,prediction_mp
 
 RATE = 250
+mean,std=np.load("mean_std.npy")
 CHANNEL8 = ['T3-Cz','O1-Cz','C3-Cz','Fp1-Cz','Fp2-Cz','O2-Cz','C4-Cz','T4-Cz']
 CHANNEL12 = ['Fp1-T3','T3-O1', 
             'Fp1-C3', 'C3-O1', 
@@ -32,10 +37,35 @@ main_running_mp = mp.Value('b', True)
 data_ch8_mp = mp.Array('f', NUM_SAMPLES*len(CHANNEL8))
 data_ch8_filtered_mp = mp.Array('f', NUM_SAMPLES*len(CHANNEL8))
 data_ch12_filtered_mp = mp.Array('f', NUM_SAMPLES*len(CHANNEL12))
+heatmaps_mp = mp.Array('f', NUM_SAMPLES*len(CHANNEL12))
+prediction_mp = mp.Value('f', 0)
 new_sample_count_mp = mp.Value('i', 0)
 ads_state_mp = mp.Value('i', 0)
 lock = mp.Lock()
 
+def model_run(heatmaps_mp,prediction_mp,mean,std):
+    model = tf.keras.models.load_model("GAT_correct_7/cp_23.ckpt")
+    model.layers[-1].activation = None
+    exp_model=tf.keras.Model(model.inputs,[model.get_layer("gat_layer_5").output,model.output])
+
+    while main_running_mp.value:
+
+        signal2=(np.array(data_ch12_filtered_mp).reshape((len(CHANNEL12),-1))-mean)/std
+        signal2=np.expand_dims(signal2,axis=-1)
+        processed_signal=np.expand_dims(signal2,axis=0)
+
+        with tf.GradientTape() as tape:
+            GAT_outputs, predictions = exp_model(processed_signal)
+            Class=predictions[:,0]
+
+        grads = tape.gradient(Class, GAT_outputs)
+        heatmap = GAT_outputs[0] *  tf.reduce_mean(grads, axis=(0,1,2))
+        heatmap = (tf.nn.relu(heatmap)/tf.reduce_max(heatmap)).numpy()
+        heatmap = cv2.resize(heatmap, (NUM_SAMPLES,12), interpolation=cv2.INTER_LINEAR)
+        with lock:
+            heatmaps_mp[:] = heatmap.reshape(-1)
+            prediction_mp.value=tf.nn.sigmoid(predictions[0][0]).numpy()
+        
 def filter_data(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12_filtered_mp, new_sample_count_mp, main_running_mp, record_status_mp, lock):
     global CHANNEL8, CHANNEL12, NUM_SAMPLES, RATE
     first_time_record = 1
@@ -391,6 +421,7 @@ if __name__ == '__main__':
     
     get_data_process = mp.Process(target=get_data, args=(get_data_status_mp, data_ch8_mp, new_sample_count_mp, main_running_mp, lock))
     filter_data_process = mp.Process(target=filter_data, args=(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12_filtered_mp, new_sample_count_mp, main_running_mp, record_status_mp, lock))
+    model_run_process = mp.Process(target=model_run, args=(heatmaps_mp,prediction_mp,mean,std))
     get_data_process.start()
     filter_data_process.start()
     app = pg.mkQApp()

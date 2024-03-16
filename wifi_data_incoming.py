@@ -211,11 +211,28 @@ def recvall(sock, size):
 
 def loop():
     global ydata,num_samples
+    mystr = ''
+    mystr+= str(int('11101100',2))+'\n' # CONFIG3
+    mystr+= str(int('10010110',2))+'\n' # CONFIG1
+    mystr+= str(int('11010100',2))+'\n' # CONFIG2
+    mystr+= str(int('01100000',2))+'\n' # CH1SET
+    mystr+= str(int('01100000',2))+'\n' # CH2SET
+    mystr+= str(int('01100000',2))+'\n' # CH3SET
+    mystr+= str(int('01100000',2))+'\n' # CH4SET
+    mystr+= str(int('01100000',2))+'\n' # CH5SET
+    mystr+= str(int('01100000',2))+'\n' # CH6SET
+    mystr+= str(int('01100000',2))+'\n' # CH7SET
+    mystr+= str(int('01100000',2))+'\n' # CH8SET
+    mystr+= str(int('11111111',2))+'\n' # BIAS_SENSP
+    mystr+= str(int('11111111',2))+'\n' # BIAS_SENSN
+    mystr+= str(int('00100000',2))+'\n' # MISC1
+    sock.sendall(mystr.encode())
     while True:
         # Receive UDP packet
-        data = recvall(sock,4*9)
+        data = recvall(sock,4*17)
         # print(data.decode())
-        value = np.array(struct.unpack('iiiiiiiii', data))
+        unpacked = struct.unpack('iiiiiiiiifffffffi', data)
+        value = np.array(unpacked[0:9])
         value = value*((5/24)/(2**23))*n_points
         for i,j in enumerate(show):
             ydata[i][:-1] = ydata[i][1:]

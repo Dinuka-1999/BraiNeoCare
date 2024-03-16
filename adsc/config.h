@@ -6,7 +6,12 @@
 #define PIN_NUM_STRT 2 // HIGH active
 #define PIN_NUM_DRDY_1 15 // active LOW
 #define PIN_NUM_PWD 16 // active LOW
-#define PIN_NUM_CLKSEL 5 
+// #define PIN_NUM_CLKSEL 5 
+#define PIN_BAT_MON 5
+#define PIN_IMU_SCL 6
+#define PIN_IMU_SDA 7
+#define led_red 36
+#define led_green 35
 //SCLK = 12, MISO = 13, MOSI = 11, SS = 10
 #define VSPI_MISO   13
 #define VSPI_MOSI   11

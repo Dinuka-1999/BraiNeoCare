@@ -16,7 +16,7 @@ import subprocess
 global RATE, record_status_mp, get_data_status, data_ch8_mp, data_ch8_filtered_mp, data_ch12_mp, data_ch12_filtered_mp, new_sample_count_mp, lock
 
 RATE = 250
-CHANNEL8 = ['T3-Cz','O1-Cz','C3-Cz','Fp1-Cz','Fp2-Cz','O2-Cz','C4-Cz','T4-Cz']
+CHANNEL8 = ['T4-Cz','Fp2-Cz','C4-Cz','O2-Cz','O1-Cz','Fp1-Cz','C3-Cz','T3-Cz']
 # CHANNEL8 = [1,2,3,4,5,6,7,8]
 CHANNEL12 = ['Fp1-T3','T3-O1', 
             'Fp1-C3', 'C3-O1', 
@@ -33,12 +33,13 @@ main_running_mp = mp.Value('b', True)
 data_ch8_mp = mp.Array('f', NUM_SAMPLES*len(CHANNEL8))
 data_ch8_filtered_mp = mp.Array('f', NUM_SAMPLES*len(CHANNEL8))
 data_ch12_filtered_mp = mp.Array('f', NUM_SAMPLES*len(CHANNEL12))
+data_acc_gyr_mp = mp.Array('f', NUM_SAMPLES*6)
 new_sample_count_mp = mp.Value('i', 0)
 ads_state_mp = mp.Value('i', 0)
 filter_mp = mp.Value('b', False)
 lock = mp.Lock()
 
-def filter_data(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12_filtered_mp, new_sample_count_mp, main_running_mp, record_status_mp, filter_mp, lock):
+def filter_data(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12_filtered_mp, new_sample_count_mp, main_running_mp, record_status_mp, filter_mp, data_acc_gyr_mp, lock):
     global CHANNEL8, CHANNEL12, NUM_SAMPLES, RATE
     first_time_record = 1
 
@@ -62,14 +63,15 @@ def filter_data(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12
         if get_data_status_mp.value:
             with lock:
                 data_ch8 = np.array(data_ch8_mp).reshape((len(CHANNEL8),-1))
+                data_acc_gyr = np.array(data_acc_gyr_mp).reshape((6,-1))
                 new_sample_count = new_sample_count_mp.value
                 if new_sample_count!=0:
                     new_sample_count_mp.value = 0
                 else:
                     continue
-            elapsed_time = time.perf_counter() - start_time
-            start_time = time.perf_counter()
-            rate = new_sample_count/elapsed_time
+            # elapsed_time = time.perf_counter() - start_time
+            # start_time = time.perf_counter()
+            # rate = new_sample_count/elapsed_time
             # if rate<240:
             #     print('low', rate)
             # if rate>260:
@@ -86,18 +88,18 @@ def filter_data(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12
             # data_ch8_filtered[:,-new_sample_count:] = filtered_data[:,0]
 
             data_ch12_filtered[:,:-new_sample_count] = data_ch12_filtered[:,new_sample_count:]
-            data_ch12_filtered[:,-new_sample_count:] = [data_ch8_filtered[3,-new_sample_count:]-data_ch8_filtered[0,-new_sample_count:],
-                                                        data_ch8_filtered[0,-new_sample_count:]-data_ch8_filtered[1,-new_sample_count:],
-                                                        data_ch8_filtered[3,-new_sample_count:]-data_ch8_filtered[2,-new_sample_count:],
-                                                        data_ch8_filtered[2,-new_sample_count:]-data_ch8_filtered[1,-new_sample_count:],
-                                                        data_ch8_filtered[4,-new_sample_count:]-data_ch8_filtered[6,-new_sample_count:],
-                                                        data_ch8_filtered[6,-new_sample_count:]-data_ch8_filtered[5,-new_sample_count:],
-                                                        data_ch8_filtered[4,-new_sample_count:]-data_ch8_filtered[7,-new_sample_count:],
-                                                        data_ch8_filtered[7,-new_sample_count:]-data_ch8_filtered[5,-new_sample_count:],
-                                                        data_ch8_filtered[0,-new_sample_count:]-data_ch8_filtered[2,-new_sample_count:],
-                                                        data_ch8_filtered[2,-new_sample_count:],
-                                                        -data_ch8_filtered[6,-new_sample_count:],
-                                                        data_ch8_filtered[6,-new_sample_count:]-data_ch8_filtered[7,-new_sample_count:]]
+            data_ch12_filtered[:,-new_sample_count:] = [data_ch8_filtered[5,-new_sample_count:]-data_ch8_filtered[7,-new_sample_count:],
+                                                        data_ch8_filtered[7,-new_sample_count:]-data_ch8_filtered[4,-new_sample_count:],
+                                                        data_ch8_filtered[5,-new_sample_count:]-data_ch8_filtered[6,-new_sample_count:],
+                                                        data_ch8_filtered[6,-new_sample_count:]-data_ch8_filtered[4,-new_sample_count:],
+                                                        data_ch8_filtered[1,-new_sample_count:]-data_ch8_filtered[2,-new_sample_count:],
+                                                        data_ch8_filtered[2,-new_sample_count:]-data_ch8_filtered[3,-new_sample_count:],
+                                                        data_ch8_filtered[1,-new_sample_count:]-data_ch8_filtered[0,-new_sample_count:],
+                                                        data_ch8_filtered[0,-new_sample_count:]-data_ch8_filtered[3,-new_sample_count:],
+                                                        data_ch8_filtered[7,-new_sample_count:]-data_ch8_filtered[6,-new_sample_count:],
+                                                        data_ch8_filtered[6,-new_sample_count:],
+                                                        -data_ch8_filtered[2,-new_sample_count:],
+                                                        data_ch8_filtered[2,-new_sample_count:]-data_ch8_filtered[0,-new_sample_count:]]
                                                         
             with lock:
                 data_ch12_filtered_mp[:] = data_ch12_filtered.reshape(-1)
@@ -110,16 +112,19 @@ def filter_data(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12
                         os.makedirs('recordings')
                     csvfile = open(f'recordings/Recording-{time.strftime("%Y%m%d-%H%M%S")}.csv', 'w', newline='')
                     writer = csv.writer(csvfile)
-                    time_array = np.zeros(len(CHANNEL12))
+                    time_array = np.zeros(len(CHANNEL12)+len(CHANNEL8)+6)
                     time_array[0] = time.time()
                     writer.writerow(time_array)
                     for i in range(0,NUM_SAMPLES-1):
-                        writer.writerow(data_ch12_filtered[:,i])
+                        # writer.writerow(data_ch12_filtered[:,i])
+                        writer.writerow(np.hstack((data_ch12_filtered[:,i], data_ch8[:,i], data_acc_gyr[:,i])))
+
                 for i in range(new_sample_count):
-                    writer.writerow(data_ch12_filtered[:,-new_sample_count+i])
+                    # writer.writerow(data_ch12_filtered[:,-new_sample_count+i])
+                    writer.writerow(np.hstack((data_ch12_filtered[:,-new_sample_count+i], data_ch8[:,-new_sample_count+i], data_acc_gyr[:,-new_sample_count+i])))
             else:
                 if first_time_record==0:
-                    time_array = np.zeros(len(CHANNEL12))
+                    time_array = np.zeros(len(CHANNEL12)+len(CHANNEL8)+6)
                     time_array[0] = time.time()
                     writer.writerow(time_array)
                     first_time_record = 1
@@ -140,7 +145,7 @@ def filter_data(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12
 
             time.sleep(0.2)
 
-def get_data(get_data_status_mp, data_ch8_mp, new_sample_count_mp, main_running_mp, ads_state_mp, lock):
+def get_data(get_data_status_mp, data_ch8_mp, new_sample_count_mp, main_running_mp, ads_state_mp, data_acc_gyr_mp , lock):
     
     global CHANNEL8, NUM_SAMPLES, RATE
 
@@ -217,8 +222,11 @@ def get_data(get_data_status_mp, data_ch8_mp, new_sample_count_mp, main_running_
             value = value*((2*5/24)/(2**24))*1000 # page 38 ads1299 datasheet
             with lock:
                 data_ch8_mp[:-1] = data_ch8_mp[1:]
+                data_acc_gyr_mp[:-1] = data_acc_gyr_mp[1:]
                 for i in range(1,len(CHANNEL8)+1):
                     data_ch8_mp[i*NUM_SAMPLES-1] = value[i]
+                for i in range(6):
+                    data_acc_gyr_mp[i*NUM_SAMPLES-1] = acc_gyr[i]
                 new_sample_count_mp.value += 1
             
             # with lock:
@@ -259,12 +267,13 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         
         self.main_plots = pg.GraphicsLayoutWidget()
         self.splitter2.addWidget(self.main_plots)
-        # self.main_plots.setMinimumWidth(2000)
-        # self.main_plots.setMinimumHeight(2000)
-        # self.scroll = pg.QtWidgets.QScrollArea()
-        # self.scroll.setWidget(self.main_plots)
-        # self.scroll.setWidgetResizable(True)
-        # self.splitter2.addWidget(self.scroll)
+
+        self.main_plots.setMinimumWidth(2000)
+        self.main_plots.setMinimumHeight(2000)
+        self.scroll = pg.QtWidgets.QScrollArea()
+        self.scroll.setWidget(self.main_plots)
+        self.scroll.setWidgetResizable(True)
+        self.splitter2.addWidget(self.scroll)
 
     def setupTree(self):
         self.params = Parameter.create(name='params', type='group', children=[
@@ -273,7 +282,8 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
             dict(name='Live Run', type='group', children=[
                 dict(name='Start', type='action'),
                 dict(name='Record', type='action', enabled=False),
-                dict(name='Stop Recording', type='action', enabled=False)
+                dict(name='Stop Recording', type='action', enabled=False),
+                dict(name='IMU', type='action'),
             ]),
             dict(name='Load', type='action'),
             dict(name='Filter', type='bool', value=False)
@@ -284,6 +294,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         self.params.param('Live Run', 'Start').sigActivated.connect(self.start_live_run)
         self.params.param('Live Run', 'Record').sigActivated.connect(self.record)
         self.params.param('Live Run', 'Stop Recording').sigActivated.connect(self.stop_record)
+        self.params.param('Live Run', 'IMU').sigActivated.connect(self.imu)
         self.params.param('Load').sigActivated.connect(self.load)
         self.params.param('Filter').sigValueChanged.connect(self.filter)
 
@@ -352,6 +363,34 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
                 ads_state_mp.value = 1
                 get_data_status_mp.value = True
 
+    def imu(self):
+        if "BraiNeoCare" not in (subprocess.check_output("netsh wlan show interfaces")).decode('utf-8'):
+            QtWidgets.QMessageBox.information(self, "WiFi Error", "Please connect your WiFi to 'BraiNeoCare' and try again.")
+        else:
+            self.stop()
+            self.params.param('Live Run', 'Record').setOpts(enabled=True)
+            self.params.param('Live Run', 'Start').setOpts(enabled=False)
+            self.params.param('Stop').setOpts(enabled=True)
+            self.params.param('Load').setOpts(enabled=False)
+            self.plots=[]
+            c = 0
+            for i in range(6):
+                self.plots.append(self.main_plots.addPlot(title=f'IMU {i}'))
+                c+=1
+                if c%2==0:
+                    self.main_plots.nextRow()
+            self.curves=[]
+            for i in range(6):
+                self.plots[i].setXLink(self.plots[0])
+                self.curves.append(self.plots[i].plot())
+
+            self.timer = QtCore.QTimer()
+            self.timer.timeout.connect(self.update_plot_imu)
+            self.timer.start(50) 
+            with lock:
+                get_data_status_mp.value = True
+                ads_state_mp.value = True
+
     def stop(self):
         self.main_plots.clear()
 
@@ -410,18 +449,40 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
             c+=1
             if c%2==0:
                 self.main_plots.nextRow()
+        for i in CHANNEL8:
+            self.plots.append(self.main_plots.addPlot(title=f'Channel {i}', axisItems = {'bottom': pg.AxisItem('bottom', units='s')}))
+            c+=1
+            if c%2==0:
+                self.main_plots.nextRow()
+        for i in range(6):
+            self.plots.append(self.main_plots.addPlot(title=f'IMU {i}', axisItems = {'bottom': pg.AxisItem('bottom', units='s')}))
+            c+=1
+            if c%2==0:
+                self.main_plots.nextRow()
         self.curves=[]
         for i in range(len(CHANNEL12)):
             self.plots[i].setXLink(self.plots[0])
-            self.plots[i].setYLink(self.plots[0])
             self.curves.append(self.plots[i].plot())
+        for i in range(len(CHANNEL8)):
+            self.plots[i+len(CHANNEL12)].setXLink(self.plots[0])
+            self.curves.append(self.plots[i+len(CHANNEL12)].plot())
+        for i in range(6):
+            self.plots[i+len(CHANNEL12)+len(CHANNEL8)].setXLink(self.plots[0])
+            # self.plots[i+len(CHANNEL12)+len(CHANNEL8)].setYLink(self.plots[0])
+            self.curves.append(self.plots[i+len(CHANNEL12)+len(CHANNEL8)].plot())
         # time_array = np.arange(0, data.shape[0]/RATE, 1/RATE)
         time_array = np.linspace(0, time_length, data.shape[0])
         for i in range(len(CHANNEL12)):
             self.curves[i].setData(x=time_array, y=data[:,i])
+        for i in range(len(CHANNEL8)):
+            self.curves[i+len(CHANNEL12)].setData(x=time_array, y=data[:,i+len(CHANNEL12)])
+        for i in range(6):
+            self.curves[i+len(CHANNEL12)+len(CHANNEL8)].setData(x=time_array, y=data[:,i+len(CHANNEL12)+len(CHANNEL8)])
+            
 
     def update_plot_connectivity(self):
-        self.data_ch8_filtered = np.array(data_ch8_filtered_mp).reshape((len(CHANNEL8),-1))
+        with lock:
+            self.data_ch8_filtered = np.array(data_ch8_filtered_mp).reshape((len(CHANNEL8),-1))
         for i in range(len(CHANNEL8)):
             #change curve color if variance is lower than 0.1
             if np.var(self.data_ch8_filtered[i][int(-NUM_SAMPLES/50):])<0.1:
@@ -431,20 +492,28 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
             self.curves[i].setData(x=self.time_array, y=self.data_ch8_filtered[i])
 
     def update_plot_live_run(self):
-        self.data_ch12_filtered = np.array(data_ch12_filtered_mp).reshape((len(CHANNEL12),-1))
+        with lock:
+            self.data_ch12_filtered = np.array(data_ch12_filtered_mp).reshape((len(CHANNEL12),-1))
         for i in range(len(CHANNEL12)):
             self.curves[i].setData(x=self.time_array, y=self.data_ch12_filtered[i])
+        
+    def update_plot_imu(self):
+        with lock:
+            self.data_acc_gyr = np.array(data_acc_gyr_mp).reshape((6,-1))
+        for i in range(6):
+            self.curves[i].setData(x=self.time_array, y=self.data_acc_gyr[i])
 
     def closeEvent(self, event):
         main_running_mp.value = False
 
     def filter(self):
         filter_mp.value = self.params.param('Filter').value()
+
         
 if __name__ == '__main__':
     
-    get_data_process = mp.Process(target=get_data, args=(get_data_status_mp, data_ch8_mp, new_sample_count_mp, main_running_mp, ads_state_mp, lock))
-    filter_data_process = mp.Process(target=filter_data, args=(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12_filtered_mp, new_sample_count_mp, main_running_mp, record_status_mp, filter_mp, lock))
+    get_data_process = mp.Process(target=get_data, args=(get_data_status_mp, data_ch8_mp, new_sample_count_mp, main_running_mp, ads_state_mp, data_acc_gyr_mp, lock))
+    filter_data_process = mp.Process(target=filter_data, args=(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12_filtered_mp, new_sample_count_mp, main_running_mp, record_status_mp, filter_mp, data_acc_gyr_mp, lock))
     get_data_process.start()
     filter_data_process.start()
     app = pg.mkQApp()

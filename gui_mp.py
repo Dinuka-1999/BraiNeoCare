@@ -323,7 +323,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
 
             self.timer = QtCore.QTimer()
             self.timer.timeout.connect(self.update_plot_connectivity)
-            self.timer.start(50) 
+            self.timer.start(100) 
             with lock:
                 get_data_status_mp.value = True
                 ads_state_mp.value = 0
@@ -357,7 +357,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
 
             self.timer = QtCore.QTimer()
             self.timer.timeout.connect(self.update_plot_live_run)
-            self.timer.start(50) 
+            self.timer.start(100) 
 
             with lock:
                 ads_state_mp.value = 1
@@ -386,7 +386,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
 
             self.timer = QtCore.QTimer()
             self.timer.timeout.connect(self.update_plot_imu)
-            self.timer.start(50) 
+            self.timer.start(100) 
             with lock:
                 get_data_status_mp.value = True
                 ads_state_mp.value = True
@@ -481,8 +481,8 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
             
 
     def update_plot_connectivity(self):
-        with lock:
-            self.data_ch8_filtered = np.array(data_ch8_filtered_mp).reshape((len(CHANNEL8),-1))
+        # with lock:
+        self.data_ch8_filtered = np.array(data_ch8_filtered_mp).reshape((len(CHANNEL8),-1))
         for i in range(len(CHANNEL8)):
             #change curve color if variance is lower than 0.1
             if np.var(self.data_ch8_filtered[i][int(-NUM_SAMPLES/50):])<0.1:
@@ -492,14 +492,14 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
             self.curves[i].setData(x=self.time_array, y=self.data_ch8_filtered[i])
 
     def update_plot_live_run(self):
-        with lock:
-            self.data_ch12_filtered = np.array(data_ch12_filtered_mp).reshape((len(CHANNEL12),-1))
+        # with lock:
+        self.data_ch12_filtered = np.array(data_ch12_filtered_mp).reshape((len(CHANNEL12),-1))
         for i in range(len(CHANNEL12)):
             self.curves[i].setData(x=self.time_array, y=self.data_ch12_filtered[i])
         
     def update_plot_imu(self):
-        with lock:
-            self.data_acc_gyr = np.array(data_acc_gyr_mp).reshape((6,-1))
+        # with lock:
+        self.data_acc_gyr = np.array(data_acc_gyr_mp).reshape((6,-1))
         for i in range(6):
             self.curves[i].setData(x=self.time_array, y=self.data_acc_gyr[i])
 

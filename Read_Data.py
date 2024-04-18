@@ -232,7 +232,7 @@ if __name__=="__main__":
     np.random.shuffle(files)
     train_signals,train_seizure,test_signals,test_seizure=read_data(folder,files,1,8)
     
-    np.save('../BraiNeoCare/Datasets/GAT/Artifacts_removed/testdata.npy',test_signals)
-    np.save('../BraiNeoCare/Datasets/GAT/Artifacts_removed/testlabels.npy',test_seizure)
-    np.save('../BraiNeoCare/Datasets/GAT/Artifacts_removed/traindata.npy',train_signals)
-    np.save('../BraiNeoCare/Datasets/GAT/Artifacts_removed/trainlabels.npy',train_seizure)
+    np.save('../BraiNeoCare/Datasets/Processed_data/testdata.npy',test_signals)
+    np.save('../BraiNeoCare/Datasets/Processed_data/testlabels.npy',test_seizure)
+    np.save('../BraiNeoCare/Datasets/Processed_data/traindata.npy',train_signals)
+    np.save('../BraiNeoCare/Datasets/Processed_data/trainlabels.npy',train_seizure)

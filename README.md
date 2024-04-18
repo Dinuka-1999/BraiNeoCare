@@ -46,7 +46,7 @@ pip install -r requirements.txt
 ```
 
 ### 4)Dataset
-* Before running the files you need to download the publicly available Zenodo Neonatal EEG dataset which Helsinki University published. You can find the data set [here](https://zenodo.org/records/4940267). Please make sure you download version 4 of this dataset. It is recommended to create a folder called "Datasets" and download this dataset into that folder.
+* To run the files, you need to download the publicly available Zenodo Neonatal EEG dataset published by Helsinki University. You can find the dataset [here](https://zenodo.org/records/4940267). Please make sure to download version 4 of the dataset. It is recommended to create a folder named "Datasets" and download the dataset into that folder.
 ```
 Datasets\
 |------- Zenodo_eeg\
@@ -59,10 +59,38 @@ Datasets\
          |--------- trainlabels.npy
          |--------- testdata.npy
          |--------- testlabels.npy
-```![EX_AI](https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/5824d4d5-ff58-45e9-8c4b-3011c6f6c725)
+```
 
-After you run the Read_Data.py file, you can store the pre-processed data required to train and test the machine learning model. Run the below code to execute this file.
+After executing the Read_Data.py file, you can save the pre-processed data required for training and testing the machine learning model. Run the code below to execute the file.
 ```
 python Read_Data.py
 ```
 ## Training the Models
+
+There are three files if you want to train a model.
+```
+|----- Model.py
+|----- cross_validation.py
+|----- SSL.py
+```
+To train the model, you have the option to run any of these files. However, we strongly suggest running either the first or second file, instead of the third one. The first file will divide the dataset into train and test datasets at a ratio of 4:1, while the second file will perform 10-fold cross-validation. Please note that if you use the SSL.py file, you will receive a pre-trained model. However, you will need to download an unlabeled neonatal EEG dataset to use it. 
+
+## Model Interpretability and Inferencing 
+
+### Model Interpretability
+
+The algorithm presented here aims to facilitate the comprehension of the concept of model interpretability. It can help users gain a better understanding of how a model makes predictions and the factors that influence them.
+
+![Screenshot 2024-04-18 154351](https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/fe5a342a-4c57-405e-a08b-86b0bee9ce86)
+
+Run the file XAI.py to see the outputs as follows.
+
+![output](https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/f5357fc2-b550-43e1-ba1d-df2cb0f447c1)
+
+### Inferencing 
+
+For real-time seizure detection using a trained model, run the gui_mp.py. You may need to add relevant paths to the trained models. 
+
+The following short video shows an example of real-time seizure detection. The green color represents normal EEG signal and the red color represents seizures. 
+
+## Future works 

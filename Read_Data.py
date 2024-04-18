@@ -6,7 +6,7 @@ import spkit as sp
 import matplotlib.pyplot as plt
 
 # Load the annotation file. Replace the file path with the path to the annotation file.
-Annotations=scipy.io.loadmat('../BraiNeoCare/Datasets/zenodo_eeg/annotations_2017.mat')
+Annotations=scipy.io.loadmat('../Datasets/zenodo_eeg/annotations_2017.mat')
 
 # Defined function to calculate the signal array
 # For 12 channels the signal array is calculated as follows:

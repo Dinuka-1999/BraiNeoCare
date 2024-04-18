@@ -102,7 +102,7 @@ def create_model():
     model.compile(optimizer=optimizer,loss=loss,metrics=['accuracy', AUROC, AUPRC,fp,tn, precision, recall,kappa])   
     return model
 
-folder='../BraiNeoCare/Datasets/zenodo_eeg/'
+folder="...Path to the folder containing the dataset..."
 files=os.listdir(folder)
 
 for r in range(10):
@@ -128,4 +128,5 @@ for r in range(10):
     history=model.fit(x_train,y_train,epochs=50,batch_size=512,verbose=1,validation_data=(x_test,y_test),callbacks=[cp_callback]) 
     with open(f"History/history_cv_10_{r}.jason", 'w') as f:
         pd.DataFrame(history.history).to_json(f)
+
     

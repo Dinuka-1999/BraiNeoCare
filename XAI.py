@@ -8,14 +8,15 @@ import tqdm
 from matplotlib.animation import FuncAnimation 
 import tensorflow_addons as tfa
 
-EEG,labels=rs.read_a_file("../BraiNeoCare/Datasets/zenodo_eeg/eeg.edf",19,plot_=True)
+#See the Read_Data.py file for the function read_a_file and more details
+EEG,labels=rs.read_a_file("...Path to your EEG data file(.edf)...","...File number...",plot_=True)
 
-model = keras.models.load_model("GAT_correct_7\cp_23.ckpt")
+model = keras.models.load_model("...Path to your model...")
 model.layers[-1].activation = None
 
 model.summary()
 
-grad_model = keras.Model(model.inputs,[model.get_layer("gat_layer_5").output,model.output])
+grad_model = keras.Model(model.inputs,[model.get_layer("...Name of the final GAT layer...").output,model.output])
 
 def PreprocesSignal(signal,mean,std):
     signal=(signal-mean)/std
@@ -36,11 +37,12 @@ def GradCAM(signal,model=grad_model):
     # print(tf.reduce_mean(grads, axis=(0,1,2)))
     return heatmap.numpy(),tf.nn.sigmoid(predictions[0][0]).numpy()
 
-mean,std=np.load("mean_std.npy")
+mean,std=np.load("...Path to mean and std file...")#mean and std of the training data
 
 fig,ax=plt.subplots(12,1,figsize=(20,20))
-lb=9500
-ub=9500+30*32
+
+lb= 64600#Lower bound of the required time frame
+ub= 64600+1152#Upper bound of the required time frame (1152 samples = 32 seconds)
 for r in range(12):
     ax[r].plot(EEG[r][lb:ub])
     ax[r].plot(labels[r][lb:ub])
@@ -50,17 +52,23 @@ plt.show()
 
 channel_names=["Fp1-T3","T3-O1","Fp1-C3","C3-O1","Fp2-C4","C4-O2","Fp2-T4","T4-O2","T3-C3","C3-Cz","Cz-C4","C4-T4"]
 
-lb=9984+384*2
-ub=9984+384*2+384
-x=PreprocesSignal(EEG[:,lb:ub],mean,std)
-h,p=GradCAM(x)
-print("prediction:- ",1 if p>=0.5 else 0)
+l=64600
+u=64600+1152
+h_map=np.zeros((12,1152))
 
-resized_heatmap = cv.resize(h, (384,12), interpolation=cv.INTER_LINEAR)
+for r in range(3):
+    lb=l+384*r
+    ub=l+384*r+384
+    x=PreprocesSignal(EEG[:,lb:ub],mean,std)
+    h,p=GradCAM(x)
+    print("prediction:- ",1 if p>=0.5 else 0)
+    resized_heatmap = cv.resize(h, (384,12), interpolation=cv.INTER_LINEAR)
+    h_map[:,384*r:384*r+384]=resized_heatmap
+
 fig,ax=plt.subplots(12,1,figsize=(20,25))
 for r in range(12):
-    ax[r].plot(EEG[r,lb:ub],color='k')
-    im=ax[r].imshow(resized_heatmap[r].reshape(1,384),cmap='bwr',alpha=1,extent=[0,384,EEG[r,lb:ub].min(),EEG[r,lb:ub].max()],aspect='auto',vmax=1,vmin=0)
+    ax[r].plot(EEG[r,l:u],color='k')
+    im=ax[r].imshow(h_map[r].reshape(1,1152),cmap='bwr',alpha=0.8,extent=[0,1152,EEG[r,l:u].min(),EEG[r,l:u].max()],aspect='auto',vmax=1,vmin=0)
     ax[r].set_title(channel_names[r])   
 fig.tight_layout()
 cbar=fig.colorbar(im,ax=ax,orientation='horizontal',pad=0.02,shrink=0.5)

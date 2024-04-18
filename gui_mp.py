@@ -19,7 +19,6 @@ import cv2
 global RATE, record_status_mp, get_data_status, data_ch8_mp, data_ch8_filtered_mp, data_ch12_mp, data_ch12_filtered_mp, new_sample_count_mp
 global lock,heatmaps_mp,prediction_mp
 
-RATE = 250
 mean,std=np.load("mean_std.npy")
 CHANNEL8 = ['T3-Cz','O1-Cz','C3-Cz','Fp1-Cz','Fp2-Cz','O2-Cz','C4-Cz','T4-Cz']
 CHANNEL12 = ['Fp1-T3','T3-O1', 
@@ -27,7 +26,7 @@ CHANNEL12 = ['Fp1-T3','T3-O1',
             'Fp2-C4', 'C4-O2', 
             'Fp2-T4', 'T4-O2',
             'T3-C3', 'C3-Cz', 'Cz-C4', 'C4-T4']
-TIME_LENGTH = 4
+TIME_LENGTH = 12
 RATE = 250
 NUM_SAMPLES = TIME_LENGTH*RATE
 
@@ -43,14 +42,14 @@ new_sample_count_mp = mp.Value('i', 0)
 ads_state_mp = mp.Value('i', 0)
 lock = mp.Lock()
 
-def model_run(heatmaps_mp,prediction_mp,mean,std):
-    model = tf.keras.models.load_model("GAT_correct_7/cp_23.ckpt")
+def model_run(heatmaps_mp,prediction_mp,mean,std,main_running_mp,lock,data_ch12_filtered_mp):
+    model = tf.keras.models.load_model("Saved_models\GAT_correct_7\cp_23.ckpt")
     model.layers[-1].activation = None
     exp_model=tf.keras.Model(model.inputs,[model.get_layer("gat_layer_5").output,model.output])
 
     while main_running_mp.value:
-
-        signal2=(np.array(data_ch12_filtered_mp).reshape((len(CHANNEL12),-1))-mean)/std
+        a=np.array(data_ch12_filtered_mp).reshape((len(CHANNEL12),-1))                                       
+        signal2 = signal.resample(a, 384,axis=1)
         signal2=np.expand_dims(signal2,axis=-1)
         processed_signal=np.expand_dims(signal2,axis=0)
 
@@ -70,13 +69,11 @@ def filter_data(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12
     global CHANNEL8, CHANNEL12, NUM_SAMPLES, RATE
     first_time_record = 1
 
-    b1, a1 = signal.cheby2(2, 20, 2, btype ='highpass', fs=RATE)
-    b2, a2 = signal.cheby2(2, 20, [48,52], btype ='bandstop', fs=RATE)
-    b3, a3 = signal.cheby2(2, 20, [98,102], btype ='bandstop', fs=RATE)
+    b1, a1 = signal.cheby2(7, 20, 1, btype ='highpass', fs=RATE)
+    b2, a2 = signal.cheby2(7, 20, 30, btype ='lowpass', fs=RATE)
+    # b3, a3 = signal.cheby2(7, 20, [98,102], btype ='bandstop', fs=RATE)
     a = np.convolve(a1, a2)
-    a = np.convolve(a, a3)
     b = np.convolve(b1, b2)
-    b = np.convolve(b, b3)
     
     z8 = np.zeros((len(CHANNEL8), max(len(a), len(b))-1))
     
@@ -92,7 +89,7 @@ def filter_data(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12
                 new_sample_count_mp.value = 0
             if new_sample_count==0:
                 continue
-            
+
             data_ch8_filtered[:,:-new_sample_count] = data_ch8_filtered[:,new_sample_count:]
             data_ch8_filtered[:,-new_sample_count:], z8 = signal.lfilter(b, a, data_ch8[:,-new_sample_count:], zi=z8)
             with lock:
@@ -112,7 +109,7 @@ def filter_data(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12
                                                         data_ch8_filtered[2,-new_sample_count:],
                                                         -data_ch8_filtered[6,-new_sample_count:],
                                                         data_ch8_filtered[6,-new_sample_count:]-data_ch8_filtered[7,-new_sample_count:]]
-                                                        
+
             with lock:
                 data_ch12_filtered_mp[:] = data_ch12_filtered.reshape(-1)
             # data_ch12_filtered[:,-new_sample_count:] = filtered_data[:,0]
@@ -134,8 +131,6 @@ def filter_data(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12
                     first_time_record = 1
                     csvfile.close()
 
-                
-
         else:
             z8 = np.zeros((len(CHANNEL8), max(len(a), len(b))-1))
 
@@ -152,6 +147,7 @@ def filter_data(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12
 def get_data(get_data_status_mp, data_ch8_mp, new_sample_count_mp, main_running_mp, lock):
     
     global CHANNEL8, NUM_SAMPLES, RATE
+    data=np.load("bc_recordings.npy")
 
     # first_time = 1
     # TCP_IP = "192.168.4.21" # The IP that is printed in the serial monitor from the ESP32
@@ -201,7 +197,7 @@ def get_data(get_data_status_mp, data_ch8_mp, new_sample_count_mp, main_running_
     #         mystr+= str(int('11111111',2))+'\n' # BIAS_SENSN
     #         mystr+= str(int('00100000',2))+'\n' # MISC1
     #     sock.sendall(mystr.encode())
-
+    n=0
     while main_running_mp.value:
 
         if get_data_status_mp.value:
@@ -218,13 +214,14 @@ def get_data(get_data_status_mp, data_ch8_mp, new_sample_count_mp, main_running_
             #     for i in range(1,len(CHANNEL8)+1):
             #         data_ch8_mp[i*NUM_SAMPLES-1] = value[i]
             #     new_sample_count_mp.value += 1
-            
+
             with lock:
                 data_ch8_mp[:-1] = data_ch8_mp[1:]
                 for i in range(len(CHANNEL8)):
-                    data_ch8_mp[i*NUM_SAMPLES-1] = np.random.rand(1)
+                    data_ch8_mp[i*NUM_SAMPLES-1] = data[i][n]
                 new_sample_count_mp.value += 1
-            time.sleep(0.003)
+            time.sleep(1/250)
+            n+=1
         else:
             # if first_time == 0:
             #     first_time = 1
@@ -234,7 +231,7 @@ def get_data(get_data_status_mp, data_ch8_mp, new_sample_count_mp, main_running_
 class BraiNeoCareGUI(QtWidgets.QWidget):
     def __init__(self):
         
-        global CHANNEL8, CHANNEL12, NUM_SAMPLES, RATE, record_status_mp, get_data_status_mp, data_ch8_filtered_mp, data_ch12_filtered_mp, new_sample_count_mp, lock
+        global CHANNEL8, CHANNEL12, NUM_SAMPLES, RATE, record_status_mp, get_data_status_mp, data_ch8_filtered_mp, data_ch12_filtered_mp, new_sample_count_mp, lock,prediction_mp
         self.time_array = np.arange(0, NUM_SAMPLES/RATE, 1/RATE)
         QtWidgets.QWidget.__init__(self)
         self.setupGUI()
@@ -329,11 +326,10 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
             self.curves=[]
             for i in range(len(CHANNEL12)):
                 # self.plots[i].setMinimumHeight(100)
-                if i!=0:
-                    self.plots[i].setXLink(self.plots[0])
-                    self.plots[i].setYLink(self.plots[0])
+                # if i!=0:
+                #     self.plots[i].setXLink(self.plots[0])
+                #     self.plots[i].setYLink(self.plots[0])
                 self.curves.append(self.plots[i].plot())
-
 
             self.timer = QtCore.QTimer()
             self.timer.timeout.connect(self.update_plot_live_run)
@@ -412,7 +408,10 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
     def update_plot_live_run(self):
         self.data_ch12_filtered = np.array(data_ch12_filtered_mp).reshape((len(CHANNEL12),-1))
         for i in range(len(CHANNEL12)):
-            self.curves[i].setData(x=self.time_array, y=self.data_ch12_filtered[i])
+            if prediction_mp.value>=0.5:
+                self.curves[i].setData(x=self.time_array, y=self.data_ch12_filtered[i],pen='r')
+            else:
+                self.curves[i].setData(x=self.time_array, y=self.data_ch12_filtered[i],pen='g')
 
     def closeEvent(self, event):
         main_running_mp.value = False
@@ -421,9 +420,10 @@ if __name__ == '__main__':
     
     get_data_process = mp.Process(target=get_data, args=(get_data_status_mp, data_ch8_mp, new_sample_count_mp, main_running_mp, lock))
     filter_data_process = mp.Process(target=filter_data, args=(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12_filtered_mp, new_sample_count_mp, main_running_mp, record_status_mp, lock))
-    model_run_process = mp.Process(target=model_run, args=(heatmaps_mp,prediction_mp,mean,std))
+    model_run_process = mp.Process(target=model_run, args=(heatmaps_mp,prediction_mp,mean,std,main_running_mp,lock,data_ch12_filtered_mp))
     get_data_process.start()
     filter_data_process.start()
+    model_run_process.start()
     app = pg.mkQApp()
     win = BraiNeoCareGUI()
     win.setWindowTitle("BraiNeoCare")

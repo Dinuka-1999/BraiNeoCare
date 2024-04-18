@@ -16,31 +16,30 @@ Notice: This project was originally carried out in Ubuntu 22.04.4 LTS
 
 If you haven't installed Conda on your PC, first please install Conda by referring to the following link. https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html
 
-Once you successfully installed Conda on your PC, you can start by creating a Conda environment for the project. Let's say the name of the environment is BraineoCare
+Once you successfully installed Conda on your PC, you can start by creating a Conda environment for the project. Let's say the name of the environment is BraiNeoCare
 ```
-conda create --name BraineoCare
+conda create --name BraiNeoCare
 ```
 
 Next, activate the conda environment by calling the command,
 
 ```
-conda activate BraineoCare
+conda activate BraiNeoCare
 ```
 ### 2) Clone the GitHub repository
 
 Next, clone the GitHub repository by running the following command in your terminal after navigating to a preferred location. Or else you can download the zip from the GitHub repo.
 
 ```
-git clone https://github.com/internTrio/peopleCounter
+git clone https://github.com/Dinuka-1999/BraiNeoCare
 ```
 
 ### 3) Install required libraries
 The next step is to install the required libraries. Before that, make sure you have activated the Conda environment we created for the project. If not, activate it using the command we discussed before. Also, navigate inside to the git repo,
 ```
-cd peopleCounter
+cd BraiNeoCare
 ```
-Once you are in the correct directory and activated the Conda environment, watch [This video](https://www.youtube.com/watch?v=dZh_ps8gKgs) to install the Tensorflow object detection API.
-After that run the code below to install the required libraries.
+Once you are in the correct directory and activated the Conda environment, run the code below to install the required libraries.
 
 ```
 pip install -r requirements.txt

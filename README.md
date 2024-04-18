@@ -2,7 +2,7 @@
 
 Notice: This project was originally carried out in Ubuntu 22.04.4 LTS
 
-## Problem background
+## Problem Background
 
 * Neonatal seizures are epileptic seizures that occur in infants during the first four weeks after birth. This duration is the most vulnerable time in a lifetime to develop seizures capable of causing significant harm to the developing brain, necessitating prompt diagnosis followed by treatment.
 
@@ -10,9 +10,9 @@ Notice: This project was originally carried out in Ubuntu 22.04.4 LTS
 
 * Hence we introduce a new efficient yet reliable and accurate AI model to detect neonatal seizures with reduced electrode montage. Here we have used only 9 electrodes and 12 EEG channels namely ["Fp1-T3","T3-O1","Fp1-C3","C3-O1","Fp2-C4","C4-O2","Fp2-T4","T4-O2","T3-C3","C3-Cz","Cz-C4","C4-T4"].
 
-## Run the program
+## Getting Started
 
-### 1) Create a conda environment
+### 1) Create a Conda Environment
 
 If you haven't installed Conda on your PC, first please install Conda by referring to the following link. https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html
 
@@ -26,7 +26,7 @@ Next, activate the conda environment by calling the command,
 ```
 conda activate BraiNeoCare
 ```
-### 2) Clone the GitHub repository
+### 2) Clone the GitHub Repository
 
 Next, clone the GitHub repository by running the following command in your terminal after navigating to a preferred location. Or else you can download the zip from the GitHub repo.
 
@@ -34,7 +34,7 @@ Next, clone the GitHub repository by running the following command in your termi
 git clone https://github.com/Dinuka-1999/BraiNeoCare
 ```
 
-### 3) Install required libraries
+### 3) Install Required Libraries
 The next step is to install the required libraries. Before that, make sure you have activated the Conda environment we created for the project. If not, activate it using the command we discussed before. Also, navigate inside to the git repo,
 ```
 cd BraiNeoCare
@@ -45,9 +45,22 @@ Once you are in the correct directory and activated the Conda environment, run t
 pip install -r requirements.txt
 ```
 
-### 4) Run the program
+### 4)Dataset
 * Before running the files you need to download the publicly available Zenodo Neonatal EEG dataset which Helsinki University published. You can find the data set [here](https://zenodo.org/records/4940267). Please make sure you download version 4 of this dataset. It is recommended to create a folder called "Datasets" and download this dataset into that folder.
 ```
-Datasets
-|------- Zenodo_eeg
-|------- 
+Datasets\
+|------- Zenodo_eeg\
+|        |--------- annotations_2017.mat
+|        |--------- eeg1.edf
+|        |           :
+|        |--------- eeg79.edf
+|------- processed_data\
+         |--------- traindata.npy
+         |--------- trainlabels.npy
+         |--------- testdata.npy
+         |--------- testlabels.npy
+```
+After you run the Read_Data.py file, you can store the pre-processed data required to train and test the machine learning model. Run the below code to excute this file.
+```
+python Read_Data.py
+```

@@ -12,6 +12,9 @@ Notice: This project was originally carried out in Ubuntu 22.04.4 LTS
 
 ## Getting Started
 
+### Proposed Model Architecture 
+![Picture1](https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/ffa5674e-0870-42a8-af90-951fd1954be8)
+
 ### 1) Create a Conda Environment
 
 If you haven't installed Conda on your PC, first please install Conda by referring to the following link. https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html
@@ -95,5 +98,6 @@ The following short video shows an example of real-time seizure detection. The g
 
 https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/f2b880ef-fe77-4eb0-b23c-22c2f1b9b747
 
-
 ## Future works 
+
+As of now, we couldn't get the maximum benefit out of the Self-supervised learning model. Therefore in our future work, we will develop version two of this proposed model.

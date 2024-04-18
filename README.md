@@ -1,4 +1,4 @@
-# Deep Learning for Real-Time Neonatal Seizure Detection with Reduced Montage
+# Explainable Deep Learning for Real-Time Neonatal Seizure Detection with Reduced Montage
 
 Notice: This project was originally carried out in Ubuntu 22.04.4 LTS
 

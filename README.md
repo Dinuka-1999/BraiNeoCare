@@ -60,7 +60,31 @@ Datasets\
          |--------- testdata.npy
          |--------- testlabels.npy
 ```
-After you run the Read_Data.py file, you can store the pre-processed data required to train and test the machine learning model. Run the below code to excute this file.
+After you run the Read_Data.py file, you can store the pre-processed data required to train and test the machine learning model. Run the below code to execute this file.
 ```
 python Read_Data.py
 ```
+## Al
+\begin{algorithm}[h]
+\caption{Real-time EEG seizure detection and explain the model output with a heat map}\label{algo}
+\begin{algorithmic}
+\State Model $\gets$ load the model
+\State Model.trainable $\gets$ False
+
+\While {Signal is received}
+    \State X $\gets$ Read the EEG signal
+    \State X $\gets$ Signal Preprocessing(X)
+    \State GAT\_output, model\_output $\gets$ Model(X)
+    \State Gradient $\gets$ 2D array (shape of X)
+    \newline
+    \For {$w_{i,j}$ in GAT\_output}
+        \State Gradient(i,j) $\gets$ $\frac{\partial(model\_output)}{\partial(w_{i,j})}$
+    \EndFor
+    \newline
+    \State Heatmap $\gets$ GAT\_output$\times$mean of Gradient
+    \State Heatmap $\gets$ resize the heat map to the shape of X
+    \State Show the signal with the heat map
+    \newline
+\EndWhile
+\end{algorithmic}
+\end{algorithm}

@@ -59,7 +59,8 @@ Datasets\
          |--------- trainlabels.npy
          |--------- testdata.npy
          |--------- testlabels.npy
-```
+```![EX_AI](https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/5824d4d5-ff58-45e9-8c4b-3011c6f6c725)
+
 After you run the Read_Data.py file, you can store the pre-processed data required to train and test the machine learning model. Run the below code to execute this file.
 ```
 python Read_Data.py

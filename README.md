@@ -46,6 +46,8 @@ pip install -r requirements.txt
 ```
 
 ### 4) Run the program
-* Before running the files you need to download the publicly available Zenodo Neonatal EEG dataset which Helsinki University published. You can find the data set [here](https://zenodo.org/records/4940267). Please make sure you download version 4 of this dataset.
-
-
+* Before running the files you need to download the publicly available Zenodo Neonatal EEG dataset which Helsinki University published. You can find the data set [here](https://zenodo.org/records/4940267). Please make sure you download version 4 of this dataset. It is recommended to create a folder called "Datasets" and download this dataset into that folder.
+```
+Datasets
+|------- Zenodo_eeg
+|------- 

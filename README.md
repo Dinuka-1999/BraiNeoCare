@@ -45,4 +45,7 @@ Once you are in the correct directory and activated the Conda environment, run t
 pip install -r requirements.txt
 ```
 
+### 4) Run the program
+* Before running the files you need to download the publicly available Zenodo Neonatal EEG dataset which Helsinki University published. You can find the data set [here](https://zenodo.org/records/4940267). Please make sure you download version 4 of this dataset.
+
 

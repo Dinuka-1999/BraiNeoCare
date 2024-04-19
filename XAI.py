@@ -51,26 +51,34 @@ fig.tight_layout()
 plt.show()
 
 channel_names=["Fp1-T3","T3-O1","Fp1-C3","C3-O1","Fp2-C4","C4-O2","Fp2-T4","T4-O2","T3-C3","C3-Cz","Cz-C4","C4-T4"]
+cmap = plt.cm.jet
 
-l=64600
-u=64600+1152
+l=8100
+u=8100+1152
 h_map=np.zeros((12,1152))
-
 for r in range(3):
-    lb=l+384*r
-    ub=l+384*r+384
+    lb=8100+384*r
+    ub=8100+384*r+384
     x=PreprocesSignal(EEG[:,lb:ub],mean,std)
     h,p=GradCAM(x)
     print("prediction:- ",1 if p>=0.5 else 0)
-    resized_heatmap = cv.resize(h, (384,12), interpolation=cv.INTER_LINEAR)
-    h_map[:,384*r:384*r+384]=resized_heatmap
+    if p>=0.5:
+        resized_heatmap = cv.resize(h, (384,12), interpolation=cv.INTER_LINEAR)
+        h_map[:,384*r:384*r+384]=resized_heatmap
+        
+# plt.style.use('dark_background')
+fig,ax=plt.subplots(12,1,figsize=(20,5))
+norm = plt.Normalize(vmin=0, vmax=1)
 
-fig,ax=plt.subplots(12,1,figsize=(20,25))
 for r in range(12):
     ax[r].plot(EEG[r,l:u],color='k')
-    im=ax[r].imshow(h_map[r].reshape(1,1152),cmap='bwr',alpha=0.8,extent=[0,1152,EEG[r,l:u].min(),EEG[r,l:u].max()],aspect='auto',vmax=1,vmin=0)
-    ax[r].set_title(channel_names[r])   
+    for i in range(1151):
+        ax[r].plot([i,i+1],[EEG[r,l+i],EEG[r,l+i+1]],color=cmap(norm(h_map[r,i])))
+    ax[r].set_title(channel_names[r],fontsize=20)   
+    ax[r].set_xlim([0,1152])
+
 fig.tight_layout()
-cbar=fig.colorbar(im,ax=ax,orientation='horizontal',pad=0.02,shrink=0.5)
-cbar.set_label('Relevance')
+im=ax[0].imshow(h_map[0].reshape(1,1152),cmap=cmap,alpha=1,extent=[0,1152,EEG[0,l:u].min(),EEG[0,l:u].max()],aspect='auto',vmax=1,vmin=0,visible=False)
+cbar=fig.colorbar(im,ax=ax,orientation='horizontal',pad=0.1,shrink=0.5)
+cbar.set_label('Relevance',fontsize=20)
 plt.show()

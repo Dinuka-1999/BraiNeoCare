@@ -88,7 +88,8 @@ The algorithm presented here aims to facilitate the comprehension of the concept
 
 Run the file XAI.py to see the outputs as follows.
 
-![output](https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/f5357fc2-b550-43e1-ba1d-df2cb0f447c1)
+![COPPER](https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/2ce0c14c-800a-4330-aa77-973ca22516b1)
+
 
 ### Inferencing 
 

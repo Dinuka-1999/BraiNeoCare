@@ -8,6 +8,7 @@
  * @copyright Copyright (c) 2022
  * 
  */
+
 #ifndef ____ADS1299__
 #define ____ADS1299__
 

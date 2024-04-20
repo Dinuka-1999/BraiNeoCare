@@ -30,7 +30,7 @@ void ADS1299::setup_master(int _DRDY, int _CS)
   pinMode(PIN_NUM_RST, OUTPUT);
   pinMode(PIN_NUM_STRT, OUTPUT);
   pinMode(PIN_NUM_PWD, OUTPUT);
-  pinMode(PIN_NUM_CLKSEL, OUTPUT);
+  // pinMode(PIN_NUM_CLKSEL, OUTPUT);
   pinMode(DRDY, INPUT);
   // set up slave select pins as outputs as the Arduino API
   // doesn't handle automatically pulling SS low
@@ -49,8 +49,8 @@ void ADS1299::setup_master(int _DRDY, int _CS)
   // LDO power down
   digitalWrite(PIN_NUM_PWD, LOW);
 
-  digitalWrite(PIN_NUM_CLKSEL, HIGH);
-  delay(1000); // wait for oscillator startup 20us
+  // digitalWrite(PIN_NUM_CLKSEL, HIGH);
+  // delay(1000); // wait for oscillator startup 20us
 
   digitalWrite(PIN_NUM_PWD, HIGH);
   digitalWrite(PIN_NUM_RST, HIGH);

@@ -268,12 +268,12 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         self.main_plots = pg.GraphicsLayoutWidget()
         self.splitter2.addWidget(self.main_plots)
 
-        self.main_plots.setMinimumWidth(2000)
-        self.main_plots.setMinimumHeight(2000)
-        self.scroll = pg.QtWidgets.QScrollArea()
-        self.scroll.setWidget(self.main_plots)
-        self.scroll.setWidgetResizable(True)
-        self.splitter2.addWidget(self.scroll)
+        # self.main_plots.setMinimumWidth(2000)
+        # self.main_plots.setMinimumHeight(2000)
+        # self.scroll = pg.QtWidgets.QScrollArea()
+        # self.scroll.setWidget(self.main_plots)
+        # self.scroll.setWidgetResizable(True)
+        # self.splitter2.addWidget(self.scroll)
 
     def setupTree(self):
         self.params = Parameter.create(name='params', type='group', children=[

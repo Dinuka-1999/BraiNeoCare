@@ -51,7 +51,7 @@ fig.tight_layout()
 plt.show()
 
 channel_names=["Fp1-T3","T3-O1","Fp1-C3","C3-O1","Fp2-C4","C4-O2","Fp2-T4","T4-O2","T3-C3","C3-Cz","Cz-C4","C4-T4"]
-cmap = plt.cm.jet
+cmap = plt.cm.bwr
 
 l=8100
 u=8100+1152
@@ -67,18 +67,20 @@ for r in range(3):
         h_map[:,384*r:384*r+384]=resized_heatmap
         
 # plt.style.use('dark_background')
-fig,ax=plt.subplots(12,1,figsize=(20,5))
+fig,ax=plt.subplots(12,1,figsize=(20,25))
 norm = plt.Normalize(vmin=0, vmax=1)
-
+b=np.arange(0,36,1/32)
 for r in range(12):
-    ax[r].plot(EEG[r,l:u],color='k')
     for i in range(1151):
-        ax[r].plot([i,i+1],[EEG[r,l+i],EEG[r,l+i+1]],color=cmap(norm(h_map[r,i])))
+        ax[r].plot([i/32,(i+1)/32],[EEG[r,l+i]*1e6,EEG[r,l+i+1]*1e6],color=cmap(norm(h_map[r,i])))
     ax[r].set_title(channel_names[r],fontsize=20)   
-    ax[r].set_xlim([0,1152])
-
+    ax[r].set_xlim([0,36])
+    ax[r].tick_params(axis='x', labelsize=16)
+    ax[r].tick_params(axis='y', labelsize=16)
+ax[-1].set_xlabel("Time (s)",fontsize=20)
 fig.tight_layout()
-im=ax[0].imshow(h_map[0].reshape(1,1152),cmap=cmap,alpha=1,extent=[0,1152,EEG[0,l:u].min(),EEG[0,l:u].max()],aspect='auto',vmax=1,vmin=0,visible=False)
-cbar=fig.colorbar(im,ax=ax,orientation='horizontal',pad=0.1,shrink=0.5)
+fig.text(-0.015, 0.6, 'Amplitude (uV)', va='center', rotation='vertical', fontsize=20)
+im=ax[0].imshow(h_map[0].reshape(1,1152),cmap=cmap,alpha=1,extent=[0,36,EEG[0,l:u].min()*1e6,EEG[0,l:u].max()*1e6],aspect='auto',vmax=1,vmin=0,visible=False)
+cbar=fig.colorbar(im,ax=ax,orientation='horizontal',pad=0.04,shrink=0.5)
 cbar.set_label('Relevance',fontsize=20)
 plt.show()

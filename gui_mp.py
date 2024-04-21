@@ -12,9 +12,9 @@ from scipy import signal
 import os
 import multiprocessing as mp
 import subprocess
-import tensorflow as tf
-import tensorflow_addons as tfa
 import cv2
+import pygame
+import random
 
 global RATE, record_status_mp, get_data_status, data_ch8_mp, data_ch8_filtered_mp, data_ch12_mp, data_ch12_filtered_mp, new_sample_count_mp
 global lock,heatmaps_mp,prediction_mp
@@ -27,8 +27,8 @@ CHANNEL12 = ['Fp1-T3','T3-O1',
             'Fp2-C4', 'C4-O2', 
             'Fp2-T4', 'T4-O2',
             'T3-C3', 'C3-Cz', 'Cz-C4', 'C4-T4']
-TIME_LENGTH = 12
-RATE = 250
+TIME_LENGTH = 4
+RATE = 250  
 NUM_SAMPLES = TIME_LENGTH*RATE
 
 record_status_mp = mp.Value('b', False)
@@ -42,12 +42,83 @@ new_sample_count_mp = mp.Value('i', 0)
 ads_state_mp = mp.Value('i', 0)
 filter_mp = mp.Value('b', False)
 lock = mp.Lock()
+thresh1_mp = mp.Value('f', 0.1)
+thresh2_mp = mp.Value('f', 0.1)
+variance1_mp = mp.Value('f', 0)
+variance2_mp = mp.Value('f', 0)
+
+
+def beep(variance1_mp, variance2_mp, thresh1_mp, thresh2_mp, main_running_mp):
+    pygame.mixer.init()
+    beep_sound = pygame.mixer.Sound("beep.wav")
+    def play_beep():
+        beep_sound.play()
+
+    pygame.init()
+    WHITE = (255, 255, 255)
+    SCREEN_WIDTH = 200
+    SCREEN_HEIGHT = 500
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    pygame.display.set_caption("Floating Apple Game")
+
+    clock = pygame.time.Clock()
+
+    class Apple(pygame.sprite.Sprite):
+        def __init__(self):
+            super().__init__()
+            self.image = pygame.image.load("apple.png").convert_alpha()  # Load apple image
+            self.image = pygame.transform.scale(self.image, (100, 100))  # Resize image
+            self.rect = self.image.get_rect()
+            self.rect.x = (SCREEN_WIDTH - self.rect.width) // 2
+            self.rect.y = SCREEN_HEIGHT - self.rect.height
+
+        def update(self, is_space_pressed):
+            if is_space_pressed:
+                self.rect.y -= 2
+                if self.rect.y < 0:
+                    self.rect.y = 0
+            else:
+                self.rect.y += 2
+                if self.rect.y > SCREEN_HEIGHT - self.rect.height:
+                    self.rect.y = SCREEN_HEIGHT - self.rect.height
+
+    all_sprites = pygame.sprite.Group()
+    apple = Apple()
+    all_sprites.add(apple)
+        
+    running = True
+    is_space_pressed = False
+
+    c = 0
+
+    while main_running_mp.value:
+        if c%15 == 0:
+            if variance1_mp.value > thresh1_mp.value:
+                play_beep()
+            if variance2_mp.value > thresh2_mp.value:
+                play_beep()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+        if variance1_mp.value > thresh1_mp.value:
+            is_space_pressed = True
+        elif variance2_mp.value > thresh2_mp.value:
+            is_space_pressed = True
+        else:
+            is_space_pressed = False
+
+        all_sprites.update(is_space_pressed)
+        screen.fill(WHITE)
+        all_sprites.draw(screen)
+        pygame.display.flip()
+        clock.tick(60)
 
 def filter_data(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12_filtered_mp, new_sample_count_mp, main_running_mp, record_status_mp, filter_mp, data_acc_gyr_mp, lock):
     global CHANNEL8, CHANNEL12, NUM_SAMPLES, RATE
     first_time_record = 1
 
-    b1, a1 = signal.cheby2(4, 20, [2,80], btype ='bandpass', fs=RATE)
+    b1, a1 = signal.cheby2(4, 40, [2,90], btype ='bandpass', fs=RATE)
     b2, a2 = signal.cheby2(2, 20, [48,52], btype ='bandstop', fs=RATE)
     b3, a3 = signal.cheby2(2, 20, [98,102], btype ='bandstop', fs=RATE)
     a = np.convolve(a1, a2)
@@ -180,8 +251,8 @@ def get_data(get_data_status_mp, data_ch8_mp, new_sample_count_mp, main_running_
             mystr+= str(int('01100000',2))+'\n' # CH6SET
             mystr+= str(int('01100000',2))+'\n' # CH7SET
             mystr+= str(int('01100000',2))+'\n' # CH8SET
-            mystr+= str(int('00000000',2))+'\n' # BIAS_SENSP
-            mystr+= str(int('00000000',2))+'\n' # BIAS_SENSN
+            mystr+= str(int('11111111',2))+'\n' # BIAS_SENSP
+            mystr+= str(int('11111111',2))+'\n' # BIAS_SENSN
             mystr+= str(int('00100000',2))+'\n' # MISC1
         else:
             mystr+= str(int('11101100',2))+'\n' # CONFIG3
@@ -240,11 +311,11 @@ def get_data(get_data_status_mp, data_ch8_mp, new_sample_count_mp, main_running_
                 first_time = 1
                 sock.close()
             time.sleep(0.2)
-       
+
+
 class BraiNeoCareGUI(QtWidgets.QWidget):
     def __init__(self):
-        
-        global CHANNEL8, CHANNEL12, NUM_SAMPLES, RATE, record_status_mp, get_data_status_mp, data_ch8_filtered_mp, data_ch12_filtered_mp, new_sample_count_mp, filter_mp, lock
+        global CHANNEL8, CHANNEL12, NUM_SAMPLES, RATE, record_status_mp, get_data_status_mp, data_ch8_filtered_mp, data_ch12_filtered_mp, new_sample_count_mp, filter_mp, lock, thresh1_mp, thresh2_mp, variance1_mp, variance2_mp
         self.time_array = np.arange(0, NUM_SAMPLES/RATE, 1/RATE)
         QtWidgets.QWidget.__init__(self)
         self.setupGUI()
@@ -286,7 +357,8 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
                 dict(name='IMU', type='action'),
             ]),
             dict(name='Load', type='action'),
-            dict(name='Filter', type='bool', value=False)
+            dict(name='Filter', type='bool', value=False),
+            dict(name='Alpha', type='action')
         ])
         self.tree.setParameters(self.params, showTop=False)
         self.params.param('Check Connectivity').sigActivated.connect(self.check_connectivity)
@@ -297,6 +369,8 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         self.params.param('Live Run', 'IMU').sigActivated.connect(self.imu)
         self.params.param('Load').sigActivated.connect(self.load)
         self.params.param('Filter').sigValueChanged.connect(self.filter)
+        self.params.param('Alpha').sigActivated.connect(self.alpha)
+        
 
     def check_connectivity(self):
         if "BraiNeoCare" not in (subprocess.check_output("netsh wlan show interfaces")).decode('utf-8'):
@@ -362,6 +436,50 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
                 ads_state_mp.value = 1
                 get_data_status_mp.value = True
 
+    def alpha(self):
+        self.stop()
+        self.params.param('Live Run', 'Record').setOpts(enabled=True)
+        self.params.param('Live Run', 'Start').setOpts(enabled=False)
+        self.params.param('Stop').setOpts(enabled=True)
+        self.params.param('Load').setOpts(enabled=False)
+        self.plots=[]
+        c = 0
+        for i in range(4):
+            c+=1
+            if c in [1,2]:
+                self.plots.append(self.main_plots.addPlot(colspan=2, title=f'Channel O{i}-Cz'))
+            else:
+                self.plots.append(self.main_plots.addPlot(title=f'Alpha Power Channel O{i}-Cz'))
+            if c in [1,2]:
+                self.main_plots.nextRow()
+        self.curves=[]
+        for i in range(4):
+            self.curves.append(self.plots[i].plot())
+
+        self.v_bar1 = pg.InfiniteLine(movable=True, angle=0)
+        self.v_bar2 = pg.InfiniteLine(movable=True, angle=0)
+        self.plots[2].addItem(self.v_bar1)
+        self.plots[3].addItem(self.v_bar2)
+
+        self.v_bar1.sigDragged.connect(self.handle_sig_dragged1)
+        self.v_bar2.sigDragged.connect(self.handle_sig_dragged2)
+
+        self.b1, self.a1 = signal.cheby2(4, 40, [8,16], 'bandpass', fs=250)
+
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.update_plot_alpha)
+        self.timer.start(100) 
+
+        with lock:
+            get_data_status_mp.value = True
+            ads_state_mp.value = 1
+        
+    def handle_sig_dragged1(self, line):
+        thresh1_mp.value = line.pos()[1]
+
+    def handle_sig_dragged2(self, line):
+        thresh2_mp.value = line.pos()[1]
+
     def imu(self):
         if "BraiNeoCare" not in (subprocess.check_output("netsh wlan show interfaces")).decode('utf-8'):
             QtWidgets.QMessageBox.information(self, "WiFi Error", "Please connect your WiFi to 'BraiNeoCare' and try again.")
@@ -398,6 +516,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
 
         self.data_ch8_filtered = np.zeros((len(CHANNEL8),NUM_SAMPLES))
         self.data_ch12_filtered = np.zeros((len(CHANNEL12),NUM_SAMPLES))
+        self.data_alpha = np.zeros((2,40))
         with lock:
             get_data_status_mp.value = False
             data_ch8_filtered_mp[:] = self.data_ch8_filtered.reshape(-1)
@@ -478,7 +597,6 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         for i in range(6):
             self.curves[i+len(CHANNEL12)+len(CHANNEL8)].setData(x=time_array, y=data[:,i+len(CHANNEL12)+len(CHANNEL8)])
             
-
     def update_plot_connectivity(self):
         # with lock:
         self.data_ch8_filtered = np.array(data_ch8_filtered_mp).reshape((len(CHANNEL8),-1))
@@ -502,6 +620,26 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         for i in range(6):
             self.curves[i].setData(x=self.time_array, y=self.data_acc_gyr[i])
 
+    def update_plot_alpha(self):
+        # with lock:
+        self.data_ch8_filtered = np.array(data_ch8_filtered_mp).reshape((len(CHANNEL8),-1))
+
+        self.curves[0].setData(x=self.time_array, y=self.data_ch8_filtered[3])
+        filtered = signal.lfilter(self.b1, self.a1, self.data_ch8_filtered[3])
+        self.data_alpha[0][:-1] = self.data_alpha[0][1:]
+        with lock:
+            variance1_mp.value = np.var(filtered)
+        self.data_alpha[0][-1] = variance1_mp.value
+        self.curves[2].setData(y=self.data_alpha[0])
+
+        self.curves[1].setData(x=self.time_array, y=self.data_ch8_filtered[4])
+        filtered = signal.lfilter(self.b1, self.a1, self.data_ch8_filtered[4])
+        self.data_alpha[1][:-1] = self.data_alpha[1][1:]
+        with lock:
+            variance2_mp.value = np.var(filtered)
+        self.data_alpha[1][-1] = variance2_mp.value
+        self.curves[3].setData(y=self.data_alpha[1])
+
     def closeEvent(self, event):
         main_running_mp.value = False
 
@@ -513,9 +651,10 @@ if __name__ == '__main__':
     
     get_data_process = mp.Process(target=get_data, args=(get_data_status_mp, data_ch8_mp, new_sample_count_mp, main_running_mp, ads_state_mp, data_acc_gyr_mp, lock))
     filter_data_process = mp.Process(target=filter_data, args=(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12_filtered_mp, new_sample_count_mp, main_running_mp, record_status_mp, filter_mp, data_acc_gyr_mp, lock))
+    beep_process = mp.Process(target=beep, args=(variance1_mp, variance2_mp, thresh1_mp, thresh2_mp, main_running_mp))
     get_data_process.start()
     filter_data_process.start()
-    model_run_process.start()
+    beep_process.start()
     app = pg.mkQApp()
     win = BraiNeoCareGUI()
     win.setWindowTitle("BraiNeoCare")

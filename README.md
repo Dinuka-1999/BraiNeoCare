@@ -95,7 +95,10 @@ For real-time seizure detection using a trained model, run the gui_mp.py. You ma
 
 The following short video shows an example of real-time seizure detection. The green color represents normal EEG signal and the red color represents seizures. 
 
-https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/f2b880ef-fe77-4eb0-b23c-22c2f1b9b747
+
+https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/fac5e828-8e20-4523-a7a5-88d281f7a33a
+
+
 
 ## Future works 
 

@@ -310,8 +310,8 @@ def get_data(get_data_status_mp, data_ch8_mp, new_sample_count_mp, main_running_
             mystr+= str(int('01100000',2))+'\n' # CH6SET
             mystr+= str(int('01100000',2))+'\n' # CH7SET
             mystr+= str(int('01100000',2))+'\n' # CH8SET
-            mystr+= str(int('11111111',2))+'\n' # BIAS_SENSP
-            mystr+= str(int('11111111',2))+'\n' # BIAS_SENSN
+            mystr+= str(int('00000000',2))+'\n' # BIAS_SENSP
+            mystr+= str(int('00000000',2))+'\n' # BIAS_SENSN
             mystr+= str(int('00100000',2))+'\n' # MISC1
         else:
             mystr+= str(int('11101100',2))+'\n' # CONFIG3
@@ -385,19 +385,23 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         self.layout = QtWidgets.QVBoxLayout()
         self.layout.setContentsMargins(0,0,0,0)
         self.setLayout(self.layout)
+
         self.splitter = QtWidgets.QSplitter()
         self.splitter.setOrientation(QtCore.Qt.Orientation.Horizontal)
         self.layout.addWidget(self.splitter)
-        
-        self.tree = ParameterTree(showHeader=False)
-        self.splitter.addWidget(self.tree)
-        
-        self.splitter2 = QtWidgets.QSplitter()
-        self.splitter2.setOrientation(QtCore.Qt.Orientation.Vertical)
-        self.splitter.addWidget(self.splitter2)
+
+        self.splitter1 = QtWidgets.QSplitter()
+        self.splitter1.setOrientation(QtCore.Qt.Orientation.Vertical)
+        self.splitter.addWidget(self.splitter1)
         
         self.main_plots = pg.GraphicsLayoutWidget()
-        self.splitter2.addWidget(self.main_plots)
+        self.splitter.addWidget(self.main_plots)
+
+        self.tree = ParameterTree(showHeader=False)
+        self.splitter1.addWidget(self.tree)
+
+        self.label_plots = pg.GraphicsLayoutWidget()
+        self.splitter1.addWidget(self.label_plots)
 
         # self.main_plots.setMinimumWidth(2000)
         # self.main_plots.setMinimumHeight(2000)
@@ -419,7 +423,9 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
             ]),
             dict(name='Load', type='action'),
             dict(name='Filter', type='bool', value=False),
-            dict(name='Alpha', type='action')
+            dict(name='Alpha', type='action'),
+            # add a Bold text in red Recording
+            dict(name='Recording', type='str',readonly=True),
         ])
         self.tree.setParameters(self.params, showTop=False)
         self.params.param('Check Connectivity').sigActivated.connect(self.check_connectivity)
@@ -547,7 +553,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         self.timer.start(100) 
 
         with lock:
-            get_data_status_mp.value = True
+            get_data_status_mp.value = True 
             ads_state_mp.value = 1
         
     def handle_sig_dragged1(self, line):
@@ -575,7 +581,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
                     self.main_plots.nextRow()
             self.curves=[]
             for i in range(6):
-                self.plots[i].setXLink(self.plots[0])
+                # self.plots[i].setXLink(self.plots[0])
                 self.curves.append(self.plots[i].plot())
 
             self.timer = QtCore.QTimer()
@@ -594,6 +600,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         self.data_ch8_filtered = np.zeros((len(CHANNEL8),NUM_SAMPLES))
         self.data_ch12_filtered = np.zeros((len(CHANNEL12),NUM_SAMPLES))
         self.data_alpha = np.zeros((2,40))
+        self.move_state = 0
         with lock:
             get_data_status_mp.value = False
             data_ch8_filtered_mp[:] = self.data_ch8_filtered.reshape(-1)
@@ -618,11 +625,17 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         self.params.param('Live Run', 'Record').setOpts(enabled=False)
         self.params.param('Live Run', 'Stop Recording').setOpts(enabled=True)
 
+        self.label_plots.clear()
+        self.label_plots.addLabel('Recording', bold=True, color='red', size='20pt')
+
+
     def stop_record(self):
         with lock:
             record_status_mp.value = False
         self.params.param('Live Run', 'Record').setOpts(enabled=True)
         self.params.param('Live Run', 'Stop Recording').setOpts(enabled=False)
+
+        self.label_plots.clear()
 
     def load(self):
         #browse for file
@@ -718,6 +731,15 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         self.data_acc_gyr = np.array(data_acc_gyr_mp).reshape((6,-1))
         for i in range(6):
             self.curves[i].setData(x=self.time_array, y=self.data_acc_gyr[i])
+        if np.sum(np.var(self.data_acc_gyr[:,750:950], axis=1))*1000>20:
+            if self.move_state == 0:
+                self.move_state = 1
+                self.label_plots.addLabel('Movement Detected', bold=True, color='green', size='20pt')
+        else:
+            if self.move_state == 1:
+                self.move_state = 0
+                self.label_plots.clear()
+
 
     def update_plot_alpha(self):
         # with lock:
@@ -738,6 +760,17 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
             variance2_mp.value = np.var(filtered)
         self.data_alpha[1][-1] = variance2_mp.value
         self.curves[3].setData(y=self.data_alpha[1])
+
+        self.data_acc_gyr = np.array(data_acc_gyr_mp).reshape((6,-1))
+
+        if np.sum(np.var(self.data_acc_gyr[:,750:950], axis=1))*1000>20:
+            if self.move_state == 0:
+                self.move_state = 1
+                self.label_plots.addLabel('Movement Detected', bold=True, color='green', size='20pt')
+        else:
+            if self.move_state == 1:
+                self.move_state = 0
+                self.label_plots.clear()
 
     def closeEvent(self, event):
         main_running_mp.value = False

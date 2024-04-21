@@ -15,22 +15,24 @@ import subprocess
 import cv2
 import pygame
 import random
+import ICA1 as ICA
+import tensorflow as tf
+import tensorflow_addons as tfa
 
 global RATE, record_status_mp, get_data_status, data_ch8_mp, data_ch8_filtered_mp, data_ch12_mp, data_ch12_filtered_mp, new_sample_count_mp
-global lock,heatmaps_mp,prediction_mp
+global lock,heatmaps_mp,prediction_mp,annotation_mp,run_ml_model_mp
 
-RATE = 250
+mean,std=np.load("mean_std.npy")
 CHANNEL8 = ['T4-Cz','Fp2-Cz','C4-Cz','O2-Cz','O1-Cz','Fp1-Cz','C3-Cz','T3-Cz']
-# CHANNEL8 = [1,2,3,4,5,6,7,8]
 CHANNEL12 = ['Fp1-T3','T3-O1', 
             'Fp1-C3', 'C3-O1', 
             'Fp2-C4', 'C4-O2', 
             'Fp2-T4', 'T4-O2',
             'T3-C3', 'C3-Cz', 'Cz-C4', 'C4-T4']
-TIME_LENGTH = 4
-RATE = 250  
+TIME_LENGTH = 12
+RATE = 250 #change this to 256 for zenodo dataset
 NUM_SAMPLES = TIME_LENGTH*RATE
-
+  
 record_status_mp = mp.Value('b', False)
 get_data_status_mp = mp.Value('b', False)
 main_running_mp = mp.Value('b', True)
@@ -41,12 +43,64 @@ data_acc_gyr_mp = mp.Array('f', NUM_SAMPLES*6)
 new_sample_count_mp = mp.Value('i', 0)
 ads_state_mp = mp.Value('i', 0)
 filter_mp = mp.Value('b', False)
+run_ml_model_mp=mp.Value('b', False)
 lock = mp.Lock()
+heatmaps_mp = mp.Array('f', NUM_SAMPLES*len(CHANNEL12))
+prediction_mp = mp.Value('f', 0)
 thresh1_mp = mp.Value('f', 0.1)
 thresh2_mp = mp.Value('f', 0.1)
 variance1_mp = mp.Value('f', 0)
 variance2_mp = mp.Value('f', 0)
+  
+def Ch8_to_Ch12(data,new_sample=0):
+    array=[data[5,-new_sample:]-data[7,-new_sample:],
+           data[7,-new_sample:]-data[4,-new_sample:],
+           data[5,-new_sample:]-data[6,-new_sample:],
+           data[6,-new_sample:]-data[4,-new_sample:],
+           data[1,-new_sample:]-data[2,-new_sample:],
+           data[2,-new_sample:]-data[3,-new_sample:],
+           data[1,-new_sample:]-data[0,-new_sample:],
+           data[0,-new_sample:]-data[3,-new_sample:],
+           data[7,-new_sample:]-data[6,-new_sample:],
+           data[6,-new_sample:],
+           -data[2,-new_sample:],
+           data[2,-new_sample:]-data[0,-new_sample:]]
+    return array
 
+def filter_data_for_model(data_ch8_mp):
+
+    global CHANNEL8
+    b,a=signal.cheby2(7,20,[1,30],'bandpass',fs=RATE)
+    data_ch8 = np.array(data_ch8_mp).reshape((len(CHANNEL8),-1))
+    data=np.array(Ch8_to_Ch12(data_ch8))
+    filtered=signal.filtfilt(b,a,data,axis=1)
+    filtered=signal.resample(filtered,384,axis=1)
+    return filtered
+
+def model_run(heatmaps_mp,prediction_mp,mean,std,main_running_mp,lock,data_ch8_mp):
+
+    model = tf.keras.models.load_model("Saved_models\GAT_model_correct_4\cp_0053.ckpt")
+    model.layers[-1].activation = None
+    exp_model=tf.keras.Model(model.inputs,[model.get_layer("gat_layer_11").output,model.output])
+
+    while main_running_mp.value:
+                                      
+        signal2 = filter_data_for_model(data_ch8_mp)
+        signal2=np.expand_dims(signal2,axis=-1)
+        processed_signal=np.expand_dims(signal2,axis=0)
+
+        with tf.GradientTape() as tape:
+            GAT_outputs, predictions = exp_model(processed_signal)
+            Class=predictions[:,0]
+
+        grads = tape.gradient(Class, GAT_outputs)
+        heatmap = GAT_outputs[0] *  tf.reduce_mean(grads, axis=(0,1,2))
+        heatmap = (tf.nn.relu(heatmap)/tf.reduce_max(heatmap)).numpy()
+        heatmap = cv2.resize(heatmap, (NUM_SAMPLES,12), interpolation=cv2.INTER_LINEAR)
+        with lock:
+            heatmaps_mp[:] = heatmap.reshape(-1)
+            prediction_mp.value=tf.nn.sigmoid(predictions[0][0]).numpy()
+        time.sleep(0.5)
 
 def beep(variance1_mp, variance2_mp, thresh1_mp, thresh2_mp, main_running_mp):
     pygame.mixer.init()
@@ -131,7 +185,7 @@ def filter_data(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12
     data_ch12_filtered = np.zeros((len(CHANNEL12),NUM_SAMPLES))
 
     start_time = 0
-
+    Time=0
     while main_running_mp.value:
         if get_data_status_mp.value:
             with lock:
@@ -161,18 +215,7 @@ def filter_data(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12
             # data_ch8_filtered[:,-new_sample_count:] = filtered_data[:,0]
 
             data_ch12_filtered[:,:-new_sample_count] = data_ch12_filtered[:,new_sample_count:]
-            data_ch12_filtered[:,-new_sample_count:] = [data_ch8_filtered[5,-new_sample_count:]-data_ch8_filtered[7,-new_sample_count:],
-                                                        data_ch8_filtered[7,-new_sample_count:]-data_ch8_filtered[4,-new_sample_count:],
-                                                        data_ch8_filtered[5,-new_sample_count:]-data_ch8_filtered[6,-new_sample_count:],
-                                                        data_ch8_filtered[6,-new_sample_count:]-data_ch8_filtered[4,-new_sample_count:],
-                                                        data_ch8_filtered[1,-new_sample_count:]-data_ch8_filtered[2,-new_sample_count:],
-                                                        data_ch8_filtered[2,-new_sample_count:]-data_ch8_filtered[3,-new_sample_count:],
-                                                        data_ch8_filtered[1,-new_sample_count:]-data_ch8_filtered[0,-new_sample_count:],
-                                                        data_ch8_filtered[0,-new_sample_count:]-data_ch8_filtered[3,-new_sample_count:],
-                                                        data_ch8_filtered[7,-new_sample_count:]-data_ch8_filtered[6,-new_sample_count:],
-                                                        data_ch8_filtered[6,-new_sample_count:],
-                                                        -data_ch8_filtered[2,-new_sample_count:],
-                                                        data_ch8_filtered[2,-new_sample_count:]-data_ch8_filtered[0,-new_sample_count:]]
+            data_ch12_filtered[:,-new_sample_count:] = Ch8_to_Ch12(data_ch8_filtered,new_sample_count)
                                                         
             with lock:
                 data_ch12_filtered_mp[:] = data_ch12_filtered.reshape(-1)
@@ -181,9 +224,10 @@ def filter_data(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12
                 if first_time_record:
                     first_time_record = 0
                     # create a folder for recordings if not exist
+                    Time=time.strftime("%Y%m%d-%H%M%S")
                     if not os.path.exists('recordings'):
                         os.makedirs('recordings')
-                    csvfile = open(f'recordings/Recording-{time.strftime("%Y%m%d-%H%M%S")}.csv', 'w', newline='')
+                    csvfile = open(f'recordings/Recording-{Time}.csv', 'w', newline='')
                     writer = csv.writer(csvfile)
                     time_array = np.zeros(len(CHANNEL12)+len(CHANNEL8)+6)
                     time_array[0] = time.time()
@@ -202,7 +246,20 @@ def filter_data(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12
                     writer.writerow(time_array)
                     first_time_record = 1
                     csvfile.close()
-
+                    path=f'recordings/Recording-{Time}.csv'
+                    data2=np.genfromtxt(path, delimiter=',')
+                    noise_eeg,cleaned_eeg,labeled_data=ICA.get_artefacts(data2/1000000)
+                    cleaned_eeg=np.array(Ch8_to_Ch12(cleaned_eeg*1e6))
+                    noise_eeg=np.array(Ch8_to_Ch12(noise_eeg*1e6))
+                    csvfile1 = open(f'recordings/ArtifactRemoved-{Time}.csv', 'w', newline='')
+                    csvfile2 = open(f'recordings/Original-{Time}.csv', 'w', newline='')
+                    writer1 = csv.writer(csvfile1)
+                    writer2 = csv.writer(csvfile2)
+                    for i in range(0,cleaned_eeg.shape[1]-1):
+                        writer1.writerow(cleaned_eeg[:,i])
+                        writer2.writerow(noise_eeg[:,i])
+                    csvfile1.close()
+                    csvfile2.close()
         else:
             z8 = np.zeros((len(CHANNEL8), max(len(a), len(b))-1))
 
@@ -219,6 +276,8 @@ def filter_data(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12
 def get_data(get_data_status_mp, data_ch8_mp, new_sample_count_mp, main_running_mp, ads_state_mp, data_acc_gyr_mp , lock):
     
     global CHANNEL8, NUM_SAMPLES, RATE
+
+    # data2=np.load("bc_recordings.npy")
 
     first_time = 1
     TCP_IP = "192.168.4.21" # The IP that is printed in the serial monitor from the ESP32
@@ -270,7 +329,7 @@ def get_data(get_data_status_mp, data_ch8_mp, new_sample_count_mp, main_running_
             mystr+= str(int('11111111',2))+'\n' # BIAS_SENSN
             mystr+= str(int('00100000',2))+'\n' # MISC1
         sock.sendall(mystr.encode())
-
+    #n=0
     while main_running_mp.value:
 
         if get_data_status_mp.value:
@@ -303,9 +362,10 @@ def get_data(get_data_status_mp, data_ch8_mp, new_sample_count_mp, main_running_
             # with lock:
             #     data_ch8_mp[:-1] = data_ch8_mp[1:]
             #     for i in range(len(CHANNEL8)):
-            #         data_ch8_mp[i*NUM_SAMPLES-1] = np.random.rand(1)
+            #         data_ch8_mp[i*NUM_SAMPLES-1] = data2[i][n]
             #     new_sample_count_mp.value += 1
-            # time.sleep(0.003)
+            # time.sleep(1/250)
+            # n+=1
         else:
             if first_time == 0:
                 first_time = 1
@@ -352,6 +412,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
             dict(name='Stop', type='action', enabled=False),
             dict(name='Live Run', type='group', children=[
                 dict(name='Start', type='action'),
+                dict(name='Run ML Model', type='action', enabled=False),
                 dict(name='Record', type='action', enabled=False),
                 dict(name='Stop Recording', type='action', enabled=False),
                 dict(name='IMU', type='action'),
@@ -364,6 +425,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         self.params.param('Check Connectivity').sigActivated.connect(self.check_connectivity)
         self.params.param('Stop').sigActivated.connect(self.stop)
         self.params.param('Live Run', 'Start').sigActivated.connect(self.start_live_run)
+        self.params.param('Live Run', 'Run ML Model').sigActivated.connect(self.run_ml_model)
         self.params.param('Live Run', 'Record').sigActivated.connect(self.record)
         self.params.param('Live Run', 'Stop Recording').sigActivated.connect(self.stop_record)
         self.params.param('Live Run', 'IMU').sigActivated.connect(self.imu)
@@ -407,6 +469,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
             QtWidgets.QMessageBox.information(self, "WiFi Error", "Please connect your WiFi to 'BraiNeoCare' and try again.")
         else:
             self.stop()
+            self.params.param('Live Run', 'Run ML Model').setOpts(enabled=False)
             self.params.param('Live Run', 'Record').setOpts(enabled=True)
             self.params.param('Live Run', 'Start').setOpts(enabled=False)
             self.params.param('Stop').setOpts(enabled=True)
@@ -436,8 +499,21 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
                 ads_state_mp.value = 1
                 get_data_status_mp.value = True
 
+    def run_ml_model(self):
+        self.params.param('Live Run', 'Record').setOpts(enabled=True)
+        self.params.param('Live Run', 'Start').setOpts(enabled=False)
+        self.params.param('Live Run', 'Run ML Model').setOpts(enabled=False)
+        self.params.param('Stop').setOpts(enabled=True)
+        self.params.param('Load').setOpts(enabled=False)
+
+        model_run_process = mp.Process(target=model_run, args=(heatmaps_mp,prediction_mp,mean,std,main_running_mp,lock,data_ch8_mp))
+        model_run_process.start()
+
     def alpha(self):
+        beep_process = mp.Process(target=beep, args=(variance1_mp, variance2_mp, thresh1_mp, thresh2_mp, main_running_mp))
+        beep_process.start()
         self.stop()
+        self.params.param('Live Run', 'Run ML Model').setOpts(enabled=False)
         self.params.param('Live Run', 'Record').setOpts(enabled=True)
         self.params.param('Live Run', 'Start').setOpts(enabled=False)
         self.params.param('Stop').setOpts(enabled=True)
@@ -485,6 +561,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
             QtWidgets.QMessageBox.information(self, "WiFi Error", "Please connect your WiFi to 'BraiNeoCare' and try again.")
         else:
             self.stop()
+            self.params.param('Live Run', 'Run ML Model').setOpts(enabled=False)
             self.params.param('Live Run', 'Record').setOpts(enabled=True)
             self.params.param('Live Run', 'Start').setOpts(enabled=False)
             self.params.param('Stop').setOpts(enabled=True)
@@ -530,6 +607,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         self.params.param('Stop').setOpts(enabled=False)
         self.params.param('Check Connectivity').setOpts(enabled=True)
         self.params.param('Live Run', 'Start').setOpts(enabled=True)
+        self.params.param('Live Run', 'Run ML Model').setOpts(enabled=False)
         self.params.param('Live Run', 'Record').setOpts(enabled=False)
         self.params.param('Live Run', 'Stop Recording').setOpts(enabled=False)
         self.params.param('Load').setOpts(enabled=True)
@@ -553,49 +631,70 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
             return
         # load csv file as numpy array
         data = np.genfromtxt(filename, delimiter=',')
-        start_time = data[0,0]
-        # print(data.shape)
-        stop_time = data[-1,0]
-        time_length = stop_time-start_time
-        data = data[1:-1,:]
-        # plot data
-        self.main_plots.clear()
-        self.plots=[]
-        c = 0
-        for i in CHANNEL12:
-            self.plots.append(self.main_plots.addPlot(title=f'Channel {i}', axisItems = {'bottom': pg.AxisItem('bottom', units='s')}))
-            c+=1
-            if c%2==0:
-                self.main_plots.nextRow()
-        for i in CHANNEL8:
-            self.plots.append(self.main_plots.addPlot(title=f'Channel {i}', axisItems = {'bottom': pg.AxisItem('bottom', units='s')}))
-            c+=1
-            if c%2==0:
-                self.main_plots.nextRow()
-        for i in range(6):
-            self.plots.append(self.main_plots.addPlot(title=f'IMU {i}', axisItems = {'bottom': pg.AxisItem('bottom', units='s')}))
-            c+=1
-            if c%2==0:
-                self.main_plots.nextRow()
-        self.curves=[]
-        for i in range(len(CHANNEL12)):
-            self.plots[i].setXLink(self.plots[0])
-            self.curves.append(self.plots[i].plot())
-        for i in range(len(CHANNEL8)):
-            self.plots[i+len(CHANNEL12)].setXLink(self.plots[0])
-            self.curves.append(self.plots[i+len(CHANNEL12)].plot())
-        for i in range(6):
-            self.plots[i+len(CHANNEL12)+len(CHANNEL8)].setXLink(self.plots[0])
-            # self.plots[i+len(CHANNEL12)+len(CHANNEL8)].setYLink(self.plots[0])
-            self.curves.append(self.plots[i+len(CHANNEL12)+len(CHANNEL8)].plot())
-        # time_array = np.arange(0, data.shape[0]/RATE, 1/RATE)
-        time_array = np.linspace(0, time_length, data.shape[0])
-        for i in range(len(CHANNEL12)):
-            self.curves[i].setData(x=time_array, y=data[:,i])
-        for i in range(len(CHANNEL8)):
-            self.curves[i+len(CHANNEL12)].setData(x=time_array, y=data[:,i+len(CHANNEL12)])
-        for i in range(6):
-            self.curves[i+len(CHANNEL12)+len(CHANNEL8)].setData(x=time_array, y=data[:,i+len(CHANNEL12)+len(CHANNEL8)])
+        if filename.split('-')[0].split('/')[-1]== 'ArtifactRemoved':
+            data1=np.genfromtxt(f"recordings/Original-{filename.split('-')[-2]}-{filename.split('-')[-1]}", delimiter=',')
+            # plot data
+            self.main_plots.clear()
+            self.plots=[]
+            c = 0
+            for i in CHANNEL12:
+                self.plots.append(self.main_plots.addPlot(title=f'Channel {i}'))
+                c+=1
+                if c%2==0:
+                    self.main_plots.nextRow()
+            self.curves=[]
+            self.curves2=[]
+            for i in range(len(CHANNEL12)):
+                self.curves2.append(self.plots[i].plot(pen='r'))
+                self.curves.append(self.plots[i].plot(pen='g'))
+            time_array = np.arange(0, data.shape[0]/RATE, 1/RATE)
+            for i in range(len(CHANNEL12)):
+                self.curves2[i].setData(x=time_array, y=data1[:,i])
+                self.curves[i].setData(x=time_array, y=data[:,i])
+        else:
+            start_time = data[0,0]
+            # print(data.shape)
+            stop_time = data[-1,0]
+            time_length = stop_time-start_time
+            data = data[1:-1,:]
+            # plot data
+            self.main_plots.clear()
+            self.plots=[]
+            c = 0
+            for i in CHANNEL12:
+                self.plots.append(self.main_plots.addPlot(title=f'Channel {i}', axisItems = {'bottom': pg.AxisItem('bottom', units='s')}))
+                c+=1
+                if c%2==0:
+                    self.main_plots.nextRow()
+            for i in CHANNEL8:
+                self.plots.append(self.main_plots.addPlot(title=f'Channel {i}', axisItems = {'bottom': pg.AxisItem('bottom', units='s')}))
+                c+=1
+                if c%2==0:
+                    self.main_plots.nextRow()
+            for i in range(6):
+                self.plots.append(self.main_plots.addPlot(title=f'IMU {i}', axisItems = {'bottom': pg.AxisItem('bottom', units='s')}))
+                c+=1
+                if c%2==0:
+                    self.main_plots.nextRow()
+            self.curves=[]
+            for i in range(len(CHANNEL12)):
+                self.plots[i].setXLink(self.plots[0])
+                self.curves.append(self.plots[i].plot())
+            for i in range(len(CHANNEL8)):
+                self.plots[i+len(CHANNEL12)].setXLink(self.plots[0])
+                self.curves.append(self.plots[i+len(CHANNEL12)].plot())
+            for i in range(6):
+                self.plots[i+len(CHANNEL12)+len(CHANNEL8)].setXLink(self.plots[0])
+                # self.plots[i+len(CHANNEL12)+len(CHANNEL8)].setYLink(self.plots[0])
+                self.curves.append(self.plots[i+len(CHANNEL12)+len(CHANNEL8)].plot())
+            # time_array = np.arange(0, data.shape[0]/RATE, 1/RATE)
+            time_array = np.linspace(0, time_length, data.shape[0])
+            for i in range(len(CHANNEL12)):
+                self.curves[i].setData(x=time_array, y=data[:,i])
+            for i in range(len(CHANNEL8)):
+                self.curves[i+len(CHANNEL12)].setData(x=time_array, y=data[:,i+len(CHANNEL12)])
+            for i in range(6):
+                self.curves[i+len(CHANNEL12)+len(CHANNEL8)].setData(x=time_array, y=data[:,i+len(CHANNEL12)+len(CHANNEL8)])
             
     def update_plot_connectivity(self):
         # with lock:
@@ -651,10 +750,10 @@ if __name__ == '__main__':
     
     get_data_process = mp.Process(target=get_data, args=(get_data_status_mp, data_ch8_mp, new_sample_count_mp, main_running_mp, ads_state_mp, data_acc_gyr_mp, lock))
     filter_data_process = mp.Process(target=filter_data, args=(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12_filtered_mp, new_sample_count_mp, main_running_mp, record_status_mp, filter_mp, data_acc_gyr_mp, lock))
-    beep_process = mp.Process(target=beep, args=(variance1_mp, variance2_mp, thresh1_mp, thresh2_mp, main_running_mp))
+    # beep_process = mp.Process(target=beep, args=(variance1_mp, variance2_mp, thresh1_mp, thresh2_mp, main_running_mp))
     get_data_process.start()
     filter_data_process.start()
-    beep_process.start()
+    # beep_process.start()
     app = pg.mkQApp()
     win = BraiNeoCareGUI()
     win.setWindowTitle("BraiNeoCare")

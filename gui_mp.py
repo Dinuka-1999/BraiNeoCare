@@ -109,9 +109,9 @@ def beep(variance1_mp, variance2_mp, thresh1_mp, thresh2_mp, main_running_mp):
         beep_sound.play()
 
     pygame.init()
-    WHITE = (255, 255, 255)
-    SCREEN_WIDTH = 200
-    SCREEN_HEIGHT = 500
+    WHITE = (0, 82, 73)
+    SCREEN_WIDTH = 300
+    SCREEN_HEIGHT = 800
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("Floating Apple Game")
 
@@ -423,7 +423,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
             ]),
             dict(name='Load', type='action'),
             dict(name='Filter', type='bool', value=False),
-            dict(name='Alpha', type='action'),
+            dict(name='Start Game!', type='action'),
             # add a Bold text in red Recording
             dict(name='Recording', type='str',readonly=True),
         ])
@@ -437,7 +437,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         self.params.param('Live Run', 'IMU').sigActivated.connect(self.imu)
         self.params.param('Load').sigActivated.connect(self.load)
         self.params.param('Filter').sigValueChanged.connect(self.filter)
-        self.params.param('Alpha').sigActivated.connect(self.alpha)
+        self.params.param('Start Game!').sigActivated.connect(self.alpha)
         
 
     def check_connectivity(self):
@@ -475,7 +475,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
             QtWidgets.QMessageBox.information(self, "WiFi Error", "Please connect your WiFi to 'BraiNeoCare' and try again.")
         else:
             self.stop()
-            self.params.param('Live Run', 'Run ML Model').setOpts(enabled=False)
+            self.params.param('Live Run', 'Run ML Model').setOpts(enabled=True)
             self.params.param('Live Run', 'Record').setOpts(enabled=True)
             self.params.param('Live Run', 'Start').setOpts(enabled=False)
             self.params.param('Stop').setOpts(enabled=True)
@@ -511,7 +511,6 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         self.params.param('Live Run', 'Run ML Model').setOpts(enabled=False)
         self.params.param('Stop').setOpts(enabled=True)
         self.params.param('Load').setOpts(enabled=False)
-
         model_run_process = mp.Process(target=model_run, args=(heatmaps_mp,prediction_mp,mean,std,main_running_mp,lock,data_ch8_mp))
         model_run_process.start()
 
@@ -601,6 +600,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         self.data_ch12_filtered = np.zeros((len(CHANNEL12),NUM_SAMPLES))
         self.data_alpha = np.zeros((2,40))
         self.move_state = 0
+        self.label_plots.clear()
         with lock:
             get_data_status_mp.value = False
             data_ch8_filtered_mp[:] = self.data_ch8_filtered.reshape(-1)
@@ -719,19 +719,8 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
             else:
                 self.curves[i].setPen('r')
             self.curves[i].setData(x=self.time_array, y=self.data_ch8_filtered[i])
-
-    def update_plot_live_run(self):
-        # with lock:
-        self.data_ch12_filtered = np.array(data_ch12_filtered_mp).reshape((len(CHANNEL12),-1))
-        for i in range(len(CHANNEL12)):
-            self.curves[i].setData(x=self.time_array, y=self.data_ch12_filtered[i])
-        
-    def update_plot_imu(self):
-        # with lock:
         self.data_acc_gyr = np.array(data_acc_gyr_mp).reshape((6,-1))
-        for i in range(6):
-            self.curves[i].setData(x=self.time_array, y=self.data_acc_gyr[i])
-        if np.sum(np.var(self.data_acc_gyr[:,750:950], axis=1))*1000>20:
+        if np.sum(np.var(self.data_acc_gyr[:,-250:-50], axis=1))*1000>20:
             if self.move_state == 0:
                 self.move_state = 1
                 self.label_plots.addLabel('Movement Detected', bold=True, color='green', size='20pt')
@@ -739,6 +728,38 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
             if self.move_state == 1:
                 self.move_state = 0
                 self.label_plots.clear()
+
+    def update_plot_live_run(self):
+        # with lock:
+        self.data_ch12_filtered = np.array(data_ch12_filtered_mp).reshape((len(CHANNEL12),-1))
+        for i in range(len(CHANNEL12)):
+            if prediction_mp.value>=0.5:
+                self.curves[i].setData(x=self.time_array, y=self.data_ch12_filtered[i],pen='r')
+            else:
+                self.curves[i].setData(x=self.time_array, y=self.data_ch12_filtered[i],pen='g')
+        self.data_acc_gyr = np.array(data_acc_gyr_mp).reshape((6,-1))
+        if np.sum(np.var(self.data_acc_gyr[:,-250:-50], axis=1))*1000>20:
+            if self.move_state == 0:
+                self.move_state = 1
+                self.label_plots.addLabel('Movement Detected', bold=True, color='green', size='20pt')
+        else:
+            if self.move_state == 1:
+                self.move_state = 0
+                self.label_plots.clear()
+        
+    def update_plot_imu(self):
+        # with lock:
+        self.data_acc_gyr = np.array(data_acc_gyr_mp).reshape((6,-1))
+        if np.sum(np.var(self.data_acc_gyr[:,-250:-50], axis=1))*1000>20:
+            if self.move_state == 0:
+                self.move_state = 1
+                self.label_plots.addLabel('Movement Detected', bold=True, color='green', size='20pt')
+        else:
+            if self.move_state == 1:
+                self.move_state = 0
+                self.label_plots.clear()
+        for i in range(6):
+            self.curves[i].setData(x=self.time_array, y=self.data_acc_gyr[i])
 
 
     def update_plot_alpha(self):
@@ -749,7 +770,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         filtered = signal.lfilter(self.b1, self.a1, self.data_ch8_filtered[3])
         self.data_alpha[0][:-1] = self.data_alpha[0][1:]
         with lock:
-            variance1_mp.value = np.var(filtered)
+            variance1_mp.value = np.var(filtered[-500:])
         self.data_alpha[0][-1] = variance1_mp.value
         self.curves[2].setData(y=self.data_alpha[0])
 
@@ -757,13 +778,13 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         filtered = signal.lfilter(self.b1, self.a1, self.data_ch8_filtered[4])
         self.data_alpha[1][:-1] = self.data_alpha[1][1:]
         with lock:
-            variance2_mp.value = np.var(filtered)
+            variance2_mp.value = np.var(filtered[-500:])
         self.data_alpha[1][-1] = variance2_mp.value
         self.curves[3].setData(y=self.data_alpha[1])
 
         self.data_acc_gyr = np.array(data_acc_gyr_mp).reshape((6,-1))
 
-        if np.sum(np.var(self.data_acc_gyr[:,750:950], axis=1))*1000>20:
+        if np.sum(np.var(self.data_acc_gyr[:,-250:-50], axis=1))*1000>20:
             if self.move_state == 0:
                 self.move_state = 1
                 self.label_plots.addLabel('Movement Detected', bold=True, color='green', size='20pt')

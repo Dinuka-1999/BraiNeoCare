@@ -76,7 +76,7 @@ There are three files if you want to train a model.
 |----- cross_validation.py
 |----- SSL.py
 ```
-To train the model, you have the option to run any of these files. However, we strongly suggest running either the first or second file, instead of the third one. The first file will divide the dataset into train and test datasets at a ratio of 4:1, while the second file will perform 10-fold cross-validation. Please note that if you use the SSL.py file, you will receive a pre-trained model. However, you will need to download an unlabeled neonatal EEG dataset to use it. 
+To train the model, you have the option to run any of these files. However, we strongly suggest running either the first or second file, instead of the third one. The first file will divide the dataset into train and test datasets at a ratio of 4:1, while the second file will perform **10-fold cross-validation**. Please note that if you use the SSL.py file, you will receive a pre-trained model. However, you will need to download an unlabeled neonatal EEG dataset to use it. 
 
 ## Model Interpretability and Inferencing 
 

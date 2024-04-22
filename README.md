@@ -13,7 +13,7 @@ Notice: This project was originally carried out in Ubuntu 22.04.4 LTS
 ## Getting Started
 
 ### Proposed Model Architecture 
-![Picture1](https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/ffa5674e-0870-42a8-af90-951fd1954be8)
+![Picture3](https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/83bbc390-0394-4d7a-ba8a-3c01a7f46c63)
 
 ### 1) Create a Conda Environment
 
@@ -87,16 +87,15 @@ The algorithm presented here aims to facilitate the comprehension of the concept
 ![Screenshot 2024-04-18 154351](https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/fe5a342a-4c57-405e-a08b-86b0bee9ce86)
 
 Run the file XAI.py to see the outputs as follows.
-![output](https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/5cfcd2a5-b138-4c49-9c82-0c00e841b5cd)
+![EX_AI](https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/65e1b984-db88-49c4-ae0b-8c0a2ef46868)
 
-
-### Inferencing 
+### Inferencing
 
 For real-time seizure detection using a trained model, run the gui_mp.py. You may need to add relevant paths to the trained models. 
 
 The following short video shows an example of real-time seizure detection. The green color represents normal EEG signal and the red color represents seizures. 
 
-https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/f2b880ef-fe77-4eb0-b23c-22c2f1b9b747
+https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/fac5e828-8e20-4523-a7a5-88d281f7a33a
 
 ## Future works 
 

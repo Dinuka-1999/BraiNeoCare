@@ -6,7 +6,7 @@ import threading
 import pyqtgraph as pg
 import socket
 from pyqtgraph.parametertree import Parameter, ParameterTree
-from pyqtgraph.Qt import QtCore, QtWidgets
+from pyqtgraph.Qt import QtCore, QtWidgets, QtGui
 import struct
 from scipy import signal
 import os
@@ -77,12 +77,13 @@ def filter_data_for_model(data_ch8_mp):
     filtered=signal.resample(filtered,384,axis=1)
     return filtered
 
-def model_run(heatmaps_mp,prediction_mp,mean,std,main_running_mp,lock,data_ch8_mp):
+def model_run(heatmaps_mp,prediction_mp,mean,std,main_running_mp,lock,data_ch8_mp,run_ml_model_mp):
 
     model = tf.keras.models.load_model("Saved_models\GAT_model_correct_4\cp_0053.ckpt")
     model.layers[-1].activation = None
     exp_model=tf.keras.Model(model.inputs,[model.get_layer("gat_layer_11").output,model.output])
-
+    with lock:
+        run_ml_model_mp.value = True
     while main_running_mp.value:
                                       
         signal2 = filter_data_for_model(data_ch8_mp)
@@ -112,7 +113,7 @@ def beep(variance1_mp, variance2_mp, thresh1_mp, thresh2_mp, main_running_mp):
     WHITE = (0, 82, 73)
     SCREEN_WIDTH = 300
     SCREEN_HEIGHT = 800
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)
     pygame.display.set_caption("Floating Apple Game")
 
     clock = pygame.time.Clock()
@@ -123,18 +124,21 @@ def beep(variance1_mp, variance2_mp, thresh1_mp, thresh2_mp, main_running_mp):
             self.image = pygame.image.load("apple.png").convert_alpha()  # Load apple image
             self.image = pygame.transform.scale(self.image, (100, 100))  # Resize image
             self.rect = self.image.get_rect()
-            self.rect.x = (SCREEN_WIDTH - self.rect.width) // 2
-            self.rect.y = SCREEN_HEIGHT - self.rect.height
+            self.w,self.h = pygame.display.get_surface().get_size()
+            self.rect.x = (self.w - self.rect.width) // 2
+            self.rect.y = self.h - self.rect.height
 
         def update(self, is_space_pressed):
+            self.w,self.h = pygame.display.get_surface().get_size()
             if is_space_pressed:
                 self.rect.y -= 2
                 if self.rect.y < 0:
                     self.rect.y = 0
             else:
                 self.rect.y += 2
-                if self.rect.y > SCREEN_HEIGHT - self.rect.height:
-                    self.rect.y = SCREEN_HEIGHT - self.rect.height
+                if self.rect.y > self.h - self.rect.height:
+                    self.rect.y = self.h - self.rect.height
+            self.rect.x = (self.w - self.rect.width) // 2
 
     all_sprites = pygame.sprite.Group()
     apple = Apple()
@@ -174,7 +178,7 @@ def filter_data(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12
 
     b1, a1 = signal.cheby2(4, 40, [2,90], btype ='bandpass', fs=RATE)
     b2, a2 = signal.cheby2(2, 20, [48,52], btype ='bandstop', fs=RATE)
-    b3, a3 = signal.cheby2(2, 20, [98,102], btype ='bandstop', fs=RATE)
+    # b3, a3 = signal.cheby2(2, 20, [98,102], btype ='bandstop', fs=RATE)
     a = np.convolve(a1, a2)
     b = np.convolve(b1, b2)
     
@@ -213,7 +217,6 @@ def filter_data(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12
             with lock:
                 data_ch8_filtered_mp[:] = data_ch8_filtered.reshape(-1)
             # data_ch8_filtered[:,-new_sample_count:] = filtered_data[:,0]
-
             data_ch12_filtered[:,:-new_sample_count] = data_ch12_filtered[:,new_sample_count:]
             data_ch12_filtered[:,-new_sample_count:] = Ch8_to_Ch12(data_ch8_filtered,new_sample_count)
                                                         
@@ -330,9 +333,11 @@ def get_data(get_data_status_mp, data_ch8_mp, new_sample_count_mp, main_running_
             mystr+= str(int('00100000',2))+'\n' # MISC1
         sock.sendall(mystr.encode())
     #n=0
+    time_avg = np.zeros(1000)
     while main_running_mp.value:
-
+    
         if get_data_status_mp.value:
+            # startt_time = time.time()
             if first_time:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Internet  # TCP
                 first_time = 0
@@ -366,6 +371,10 @@ def get_data(get_data_status_mp, data_ch8_mp, new_sample_count_mp, main_running_
             #     new_sample_count_mp.value += 1
             # time.sleep(1/250)
             # n+=1
+            # endd_time = time.time()
+            # time_avg[:-1] = time_avg[1:]
+            # time_avg[-1] = endd_time-startt_time
+            # print(np.mean(time_avg))
         else:
             if first_time == 0:
                 first_time = 1
@@ -373,9 +382,34 @@ def get_data(get_data_status_mp, data_ch8_mp, new_sample_count_mp, main_running_
             time.sleep(0.2)
 
 
+class ColoredLines(pg.GraphicsObject):
+    def __init__(self, points, colors):
+        super().__init__()
+        self.points = points
+        self.colors = colors
+        self.generatePicture()
+    
+    def generatePicture(self):
+        self.picture = QtGui.QPicture()
+        painter = QtGui.QPainter(self.picture)
+        pen = pg.functions.mkPen()
+
+        for idx in range(len(self.points) - 1):
+            pen.setColor(self.colors[idx])
+            painter.setPen(pen)
+            painter.drawLine(self.points[idx], self.points[idx+1])
+
+        painter.end()
+    
+    def paint(self, p, *args):
+        p.drawPicture(0, 0, self.picture)
+    
+    def boundingRect(self):
+        return QtCore.QRectF(self.picture.boundingRect())
+
 class BraiNeoCareGUI(QtWidgets.QWidget):
     def __init__(self):
-        global CHANNEL8, CHANNEL12, NUM_SAMPLES, RATE, record_status_mp, get_data_status_mp, data_ch8_filtered_mp, data_ch12_filtered_mp, new_sample_count_mp, filter_mp, lock, thresh1_mp, thresh2_mp, variance1_mp, variance2_mp
+        global CHANNEL8, CHANNEL12, NUM_SAMPLES, RATE, run_ml_model_mp,record_status_mp, get_data_status_mp, data_ch8_filtered_mp, data_ch12_filtered_mp, new_sample_count_mp, filter_mp, lock, thresh1_mp, thresh2_mp, variance1_mp, variance2_mp
         self.time_array = np.arange(0, NUM_SAMPLES/RATE, 1/RATE)
         QtWidgets.QWidget.__init__(self)
         self.setupGUI()
@@ -395,20 +429,15 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         self.splitter.addWidget(self.splitter1)
         
         self.main_plots = pg.GraphicsLayoutWidget()
+        self.main_plots.setBackground('w')
         self.splitter.addWidget(self.main_plots)
 
         self.tree = ParameterTree(showHeader=False)
         self.splitter1.addWidget(self.tree)
 
         self.label_plots = pg.GraphicsLayoutWidget()
+        self.label_plots.setBackground('w')
         self.splitter1.addWidget(self.label_plots)
-
-        # self.main_plots.setMinimumWidth(2000)
-        # self.main_plots.setMinimumHeight(2000)
-        # self.scroll = pg.QtWidgets.QScrollArea()
-        # self.scroll.setWidget(self.main_plots)
-        # self.scroll.setWidgetResizable(True)
-        # self.splitter2.addWidget(self.scroll)
 
     def setupTree(self):
         self.params = Parameter.create(name='params', type='group', children=[
@@ -592,7 +621,8 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
 
     def stop(self):
         self.main_plots.clear()
-
+        with lock:
+            run_ml_model_mp.value = False
         if hasattr(self, 'timer'):
             self.timer.stop()
 
@@ -729,14 +759,40 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
                 self.move_state = 0
                 self.label_plots.clear()
 
+    def map_color(self, xxcolor):
+        cmap = pg.colormap.get("viridis")
+        lut = cmap.getLookupTable(nPts=100, mode="qcolor")
+        if prediction_mp.value>=0.5:
+            # map values in xxcolor to integer between 0 and 99
+            min = 0
+            max = 1
+            xxcolor = (xxcolor - min) / (max - min) * 99
+            xxcolor = xxcolor.astype(int)
+            colors = [lut[idx] for idx in xxcolor]
+            return colors
+        else:
+            return [lut[0] for idx in xxcolor]
+
     def update_plot_live_run(self):
         # with lock:
         self.data_ch12_filtered = np.array(data_ch12_filtered_mp).reshape((len(CHANNEL12),-1))
-        for i in range(len(CHANNEL12)):
-            if prediction_mp.value>=0.5:
-                self.curves[i].setData(x=self.time_array, y=self.data_ch12_filtered[i],pen='r')
-            else:
-                self.curves[i].setData(x=self.time_array, y=self.data_ch12_filtered[i],pen='g')
+        if run_ml_model_mp.value:
+            xxcolor= np.array(heatmaps_mp).reshape(12,-1)
+            for i in range(len(CHANNEL12)):
+                points = [QtCore.QPointF(*xy.tolist()) for xy in np.column_stack((self.time_array, self.data_ch12_filtered[i]))]
+                colors = self.map_color(xxcolor[i])
+                if isinstance(self.plots[i], pg.PlotItem):
+                    # Clear existing items in the plot
+                    self.plots[i].clear()
+                    # Generate and add the new colored lines
+                    item = ColoredLines(points, colors)
+                    self.plots[i].addItem(item)
+                    self.plots[i].setRange(yRange=[self.data_ch12_filtered[i].min(),self.data_ch12_filtered[i].max()])
+                else:
+                    print(f"Error: self.plots[{i}] is not a PlotItem instance.")
+        else:
+            self.curves[i].setData(x=self.time_array, y=self.data_ch12_filtered[i],pen='r')
+
         self.data_acc_gyr = np.array(data_acc_gyr_mp).reshape((6,-1))
         if np.sum(np.var(self.data_acc_gyr[:,-250:-50], axis=1))*1000>20:
             if self.move_state == 0:
@@ -769,16 +825,16 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         self.curves[0].setData(x=self.time_array, y=self.data_ch8_filtered[3])
         filtered = signal.lfilter(self.b1, self.a1, self.data_ch8_filtered[3])
         self.data_alpha[0][:-1] = self.data_alpha[0][1:]
-        with lock:
-            variance1_mp.value = np.var(filtered[-500:])
+        # with lock:
+        variance1_mp.value = np.var(filtered[-500:])
         self.data_alpha[0][-1] = variance1_mp.value
         self.curves[2].setData(y=self.data_alpha[0])
 
         self.curves[1].setData(x=self.time_array, y=self.data_ch8_filtered[4])
         filtered = signal.lfilter(self.b1, self.a1, self.data_ch8_filtered[4])
         self.data_alpha[1][:-1] = self.data_alpha[1][1:]
-        with lock:
-            variance2_mp.value = np.var(filtered[-500:])
+        # with lock:
+        variance2_mp.value = np.var(filtered[-500:])
         self.data_alpha[1][-1] = variance2_mp.value
         self.curves[3].setData(y=self.data_alpha[1])
 
@@ -804,10 +860,8 @@ if __name__ == '__main__':
     
     get_data_process = mp.Process(target=get_data, args=(get_data_status_mp, data_ch8_mp, new_sample_count_mp, main_running_mp, ads_state_mp, data_acc_gyr_mp, lock))
     filter_data_process = mp.Process(target=filter_data, args=(get_data_status_mp, data_ch8_mp, data_ch8_filtered_mp, data_ch12_filtered_mp, new_sample_count_mp, main_running_mp, record_status_mp, filter_mp, data_acc_gyr_mp, lock))
-    # beep_process = mp.Process(target=beep, args=(variance1_mp, variance2_mp, thresh1_mp, thresh2_mp, main_running_mp))
     get_data_process.start()
     filter_data_process.start()
-    # beep_process.start()
     app = pg.mkQApp()
     win = BraiNeoCareGUI()
     win.setWindowTitle("BraiNeoCare")

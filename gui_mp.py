@@ -429,14 +429,14 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         self.splitter.addWidget(self.splitter1)
         
         self.main_plots = pg.GraphicsLayoutWidget()
-        self.main_plots.setBackground('w')
+        self.main_plots.setBackground('w')          # Comment this for a dark background
         self.splitter.addWidget(self.main_plots)
 
         self.tree = ParameterTree(showHeader=False)
         self.splitter1.addWidget(self.tree)
 
         self.label_plots = pg.GraphicsLayoutWidget()
-        self.label_plots.setBackground('w')
+        self.label_plots.setBackground('w')          # Comment this for a dark background
         self.splitter1.addWidget(self.label_plots)
 
     def setupTree(self):
@@ -791,7 +791,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
                 else:
                     print(f"Error: self.plots[{i}] is not a PlotItem instance.")
         else:
-            self.curves[i].setData(x=self.time_array, y=self.data_ch12_filtered[i],pen='r')
+            self.curves[i].setData(x=self.time_array, y=self.data_ch12_filtered[i],pen='g')
 
         self.data_acc_gyr = np.array(data_acc_gyr_mp).reshape((6,-1))
         if np.sum(np.var(self.data_acc_gyr[:,-250:-50], axis=1))*1000>20:

@@ -76,7 +76,7 @@ There are three files if you want to train a model.
 |----- cross_validation.py
 |----- SSL.py
 ```
-To train the model, you have the option to run any of these files. However, we strongly suggest running either the first or second file, instead of the third one. The first file will divide the dataset into train and test datasets at a ratio of 4:1, while the second file will perform 10-fold cross-validation. Please note that if you use the SSL.py file, you will receive a pre-trained model. However, you will need to download an unlabeled neonatal EEG dataset to use it. 
+To train the model, you have the option to run any of these files. However, we strongly suggest running either the first or second file, instead of the third one. The first file will divide the dataset into train and test datasets at a ratio of 4:1, while the second file will perform **10-fold cross-validation**. Please note that if you use the SSL.py file, you will receive a pre-trained model. However, you will need to download an unlabeled neonatal EEG dataset to use it. 
 
 ## Model Interpretability and Inferencing 
 
@@ -86,14 +86,19 @@ The algorithm presented here aims to facilitate the comprehension of the concept
 
 ![Screenshot 2024-04-18 154351](https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/fe5a342a-4c57-405e-a08b-86b0bee9ce86)
 
-Run the file XAI.py to see the outputs as follows.
+Run the file **XAI.py** to see the outputs as follows.
 ![EX_AI](https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/65e1b984-db88-49c4-ae0b-8c0a2ef46868)
 
-### Inferencing
+## GUI
 
-For real-time seizure detection using a trained model, run the gui_mp.py. You may need to add relevant paths to the trained models. 
+For real-time seizure detection using a trained model, run the **gui_mp.py** file. You may need to add relevant paths to the trained model and other files. Before running this file please read the following carefully which describes this Python script.
 
-The following short video shows an example of real-time seizure detection. The green color represents normal EEG signal and the red color represents seizures. 
+* First of all note that, we finally applied this trained deep learning model to data we acquired from a new EEG headset that we developed. Therefore, if you run the script without necessary changes you will get errors.
+*  As the first step go to the get_data() function and remove or comment lines from 285 to 334 and from 341 to 365 and uncomment the lines from 367 to 373 and 335th line. Also, read the eeg to an array``` data2=np.load("bc_recordings.npy")```
+*  Secondly go to the filter_data() function and remove or comment the line 197.
+*  These are the necessary changes you need to make to run the script. After that, a window will open and you will find several buttons on the left side of the window. You are advised to press only the **start** button to see the signal in the loaded data2 file as a live run. Then you may press the **stop** button to stop the data reading process and **Run ML Model** to load the trained deep learning model to detect seizures in real time. After pushing this button you will see the interpretability as well.
+
+The following short video shows an example of real-time seizure detection. The green color represents normal EEG signal and the red color represents seizures. We used these two colors for clarity. In the second half of the video, you can see the offline yet efficient and accurate artifact removal (Not related to the main deep learning algorithm. But this was also implemented with a deep learning model)
 
 https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/fac5e828-8e20-4523-a7a5-88d281f7a33a
 

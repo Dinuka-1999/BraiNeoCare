@@ -134,7 +134,7 @@ def create_model():
     model = keras.Model(inputs=Input, outputs=x)
 
     optimizer=keras.optimizers.Adam(learning_rate=0.002)
-    loss=keras.losses.BinaryFocalCrossentropy(from_logits=False,gamma=2,alpha=2,apply_class_balancing=True)
+    loss=keras.losses.BinaryFocalCrossentropy(from_logits=False,gamma=2,alpha=0.4,apply_class_balancing=True)
     kappa=tfa.metrics.CohenKappa(num_classes=2)
     fp=keras.metrics.FalsePositives()
     tn=keras.metrics.TrueNegatives()

@@ -6,7 +6,7 @@ import spkit as sp
 import matplotlib.pyplot as plt
 
 # Load the annotation file. Replace the file path with the path to the annotation file.
-Annotations=scipy.io.loadmat('../Datasets/zenodo_eeg/annotations_2017.mat')
+Annotations=scipy.io.loadmat('Datasets/zenodo_eeg/annotations_2017.mat')
 
 # Defined function to calculate the signal array
 # For 12 channels the signal array is calculated as follows:
@@ -139,9 +139,10 @@ def read_a_file(file,n,plot_=False,number_of_channel=12,pre_processing=True):
                 seizures[i,s_Time[r]*32:e_Time[r]*32]=signal[i,s_Time[r]*32:e_Time[r]*32]
 
         fig,ax=plt.subplots(12,1,figsize=(20,20))
+        a=np.arange(0,len(signal[0])/(32*60),1/(32*60))
         for r in range(12):
-            ax[r].plot(signal[r])
-            ax[r].plot(seizures[r])
+            ax[r].plot(a,signal[r])
+            ax[r].plot(a,seizures[r])
             ax[r].set_title(channel_names[r])
         fig.tight_layout()
         plt.show() 
@@ -227,12 +228,12 @@ def read_data(folder,files,low,high):
 
 if __name__=="__main__":
 
-    folder='../BraiNeoCare/Datasets/zenodo_eeg/'
+    folder='Datasets/zenodo_eeg/'
     files=os.listdir(folder)
     np.random.shuffle(files)
     train_signals,train_seizure,test_signals,test_seizure=read_data(folder,files,1,8)
     
-    np.save('../BraiNeoCare/Datasets/Processed_data/testdata.npy',test_signals)
-    np.save('../BraiNeoCare/Datasets/Processed_data/testlabels.npy',test_seizure)
-    np.save('../BraiNeoCare/Datasets/Processed_data/traindata.npy',train_signals)
-    np.save('../BraiNeoCare/Datasets/Processed_data/trainlabels.npy',train_seizure)
+    np.save('Datasets/Processed_data/testdata.npy',test_signals)
+    np.save('Datasets/Processed_data/testlabels.npy',test_seizure)
+    np.save('Datasets/Processed_data/traindata.npy',train_signals)
+    np.save('Datasets/Processed_data/trainlabels.npy',train_seizure)

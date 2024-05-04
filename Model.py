@@ -125,16 +125,16 @@ def create_model():
     
     x= layers.GlobalAveragePooling1D()(x)
     x= layers.Dropout(0.2)(x)
-    x= layers.Dense(32,activation='relu',kernel_regularizer=regularizer_dense)(x)
+    x= layers.Dense(32,activation='relu')(x)
     x= layers.Dropout(0.2)(x)
-    x= layers.Dense(16,activation='relu',kernel_regularizer=regularizer_dense)(x)
+    x= layers.Dense(16,activation='relu')(x)
     x= layers.Dropout(0.2)(x)
-    x= layers.Dense(1,activation='sigmoid',kernel_regularizer=regularizer_dense)(x)
+    x= layers.Dense(1,activation='sigmoid')(x)
 
     model = keras.Model(inputs=Input, outputs=x)
 
     optimizer=keras.optimizers.Adam(learning_rate=0.002)
-    loss=keras.losses.BinaryFocalCrossentropy(from_logits=False,gamma=2,alpha=0.4,apply_class_balancing=True)
+    loss=keras.losses.BinaryFocalCrossentropy(from_logits=False,gamma=2,alpha=2,apply_class_balancing=True)
     kappa=tfa.metrics.CohenKappa(num_classes=2)
     fp=keras.metrics.FalsePositives()
     tn=keras.metrics.TrueNegatives()

@@ -562,12 +562,15 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
                 self.plots.append(self.main_plots.addPlot(title=f'Alpha Power Channel O{i}-Cz'))
             if c in [1,2]:
                 self.main_plots.nextRow()
+        PEN=pg.mkPen(color='b',width=2)
+        PEN_I=pg.mkPen(color='g',width=2)
+        self.curves=[]
         self.curves=[]
         for i in range(4):
-            self.curves.append(self.plots[i].plot())
+            self.curves.append(self.plots[i].plot(pen=PEN))
 
-        self.v_bar1 = pg.InfiniteLine(movable=True, angle=0)
-        self.v_bar2 = pg.InfiniteLine(movable=True, angle=0)
+        self.v_bar1 = pg.InfiniteLine(movable=True, angle=0, pen=PEN_I)
+        self.v_bar2 = pg.InfiniteLine(movable=True, angle=0, pen=PEN_I)
         self.plots[2].addItem(self.v_bar1)
         self.plots[3].addItem(self.v_bar2)
 
@@ -753,7 +756,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         if np.sum(np.var(self.data_acc_gyr[:,-250:-50], axis=1))*1000>20:
             if self.move_state == 0:
                 self.move_state = 1
-                self.label_plots.addLabel('Movement Detected', bold=True, color='green', size='20pt')
+                self.label_plots.addLabel('Movement Detected', color='red', bold=True, size='20pt')
         else:
             if self.move_state == 1:
                 self.move_state = 0
@@ -797,7 +800,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         if np.sum(np.var(self.data_acc_gyr[:,-250:-50], axis=1))*1000>20:
             if self.move_state == 0:
                 self.move_state = 1
-                self.label_plots.addLabel('Movement Detected', bold=True, color='green', size='20pt')
+                self.label_plots.addLabel('Movement Detected', bold=True, color='red', size='20pt')
         else:
             if self.move_state == 1:
                 self.move_state = 0
@@ -809,7 +812,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         if np.sum(np.var(self.data_acc_gyr[:,-250:-50], axis=1))*1000>20:
             if self.move_state == 0:
                 self.move_state = 1
-                self.label_plots.addLabel('Movement Detected', bold=True, color='green', size='20pt')
+                self.label_plots.addLabel('Movement Detected', bold=True, color='red', size='20pt')
         else:
             if self.move_state == 1:
                 self.move_state = 0
@@ -843,7 +846,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         if np.sum(np.var(self.data_acc_gyr[:,-250:-50], axis=1))*1000>20:
             if self.move_state == 0:
                 self.move_state = 1
-                self.label_plots.addLabel('Movement Detected', bold=True, color='green', size='20pt')
+                self.label_plots.addLabel('Movement Detected', bold=True, color='red', size='20pt')
         else:
             if self.move_state == 1:
                 self.move_state = 0

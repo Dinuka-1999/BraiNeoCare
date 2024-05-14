@@ -13,7 +13,8 @@ Notice: This project was originally carried out in Ubuntu 22.04.4 LTS
 ## Getting Started
 
 ### Proposed Model Architecture 
-![Picture3](https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/83bbc390-0394-4d7a-ba8a-3c01a7f46c63)
+![Full_model](https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/70ea85b7-8bc5-4f42-92de-e7dbfa5867a5)
+
 
 ### 1) Create a Conda Environment
 
@@ -87,7 +88,8 @@ The algorithm presented here aims to facilitate the comprehension of the concept
 ![Screenshot 2024-04-18 154351](https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/fe5a342a-4c57-405e-a08b-86b0bee9ce86)
 
 Run the file **XAI.py** to see the outputs as follows.
-![EX_AI](https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/65e1b984-db88-49c4-ae0b-8c0a2ef46868)
+![EX_AI](https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/8dec4cbd-8057-440e-b434-f397769dd26b)
+
 
 ## GUI
 

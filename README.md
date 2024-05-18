@@ -88,7 +88,8 @@ The algorithm presented here aims to facilitate the comprehension of the concept
 ![Screenshot 2024-04-18 154351](https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/fe5a342a-4c57-405e-a08b-86b0bee9ce86)
 
 Run the file **XAI.py** to see the outputs as follows.
-![EX_AI](https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/8dec4cbd-8057-440e-b434-f397769dd26b)
+![EX_AI](https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/77a56722-2b60-4d9c-bada-91cb724912b9)
+
 
 
 ## GUI

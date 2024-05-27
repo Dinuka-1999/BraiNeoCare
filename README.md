@@ -110,4 +110,4 @@ https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/fac5e828-8e20-4523-a7
 As of now, we couldn't get the maximum benefit out of the Self-supervised learning model. Therefore in our future work, we will develop version two of this proposed model.
 
 ## In - Publication
-Dinuka Sandu Udayantha, Kavindu Nirmana, Nima Wickramasinghe, Akila Abeyratne, Kithmin Wickramasinghe, Jithangi Weerasinghe, Anjula De Silva, and Chamira Edussooriya. "_Using Explainable AI for EEG-based Reduced Montage Neonatal Seizure Detection_",2024 
+D. S. Udayantha, K. Weerasinghe, N. Wickramasinghe, A. Abeyratne, K. Wickramasinghe, J. Weerasinghe, A. De Silva, and C. Edussooriya. "_Using Explainable AI for EEG-based Reduced Montage Neonatal Seizure Detection_",2024 IEEE international conference on systems, man, and cybernetics.

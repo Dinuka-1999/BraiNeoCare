@@ -98,7 +98,7 @@ def create_model():
     x= layers.SpatialDropout2D(0.2)(x)
 
     x= layers.Conv2D(64,(1,5),activation='relu',padding='same')(x)
-    y- layers.Conv2D(64,(1,7),activation='relu',padding='same')(x)
+    y= layers.Conv2D(64,(1,7),activation='relu',padding='same')(x)
     x= layers.add([x,y])
     x= layers.AveragePooling2D((1,2))(x)
     x= layers.BatchNormalization()(x)

@@ -772,7 +772,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
     def map_color(self, xxcolor):
         cmap = pg.colormap.get("viridis")
         lut = cmap.getLookupTable(nPts=100, mode="qcolor")
-        if prediction_mp.value>=0.5:
+        if prediction_mp.value>=0.6:
             # map values in xxcolor to integer between 0 and 99
             min = 0
             max = 1

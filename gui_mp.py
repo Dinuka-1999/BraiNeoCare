@@ -366,8 +366,8 @@ def get_data(get_data_status_mp, data_ch8_mp, new_sample_count_mp, main_running_
             
             # with lock:
             #     data_ch8_mp[:-1] = data_ch8_mp[1:]
-            #     for i in range(len(CHANNEL8)):
-            #         data_ch8_mp[i*NUM_SAMPLES-1] = data2[i][n]
+            #     for i in range(1, len(CHANNEL8)+1):
+            #         data_ch8_mp[i*NUM_SAMPLES-1] = data2[i-1][n]
             #     new_sample_count_mp.value += 1
             # time.sleep(1/250)
             # n+=1
@@ -512,13 +512,20 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
             self.plots=[]
             c = 0
             for i in CHANNEL12:
-                self.plots.append(self.main_plots.addPlot(title=i))
+                self.plots.append(self.main_plots.addPlot())
                 c+=1
                 if c%2==0:
                     self.main_plots.nextRow()
             self.curves=[]
             for i in range(len(CHANNEL12)):
                 # self.plots[i].setMinimumHeight(100)
+                self.plots[i].getAxis('bottom').setPen(pg.mkPen(color='k', width=2))
+                self.plots[i].getAxis('left').setPen(pg.mkPen(color='k', width=2))
+                self.plots[i].getAxis('left').setTextPen(pg.mkPen(color='k',width=2))
+                self.plots[i].getAxis('bottom').setTextPen(pg.mkPen(color='k',width=2))
+                self.plots[i].setTitle(CHANNEL12[i], color='k', size='12pt')
+                self.plots[i].setLabel('left', 'Volt', color='k', size="12pt")
+                self.plots[i].setLabel('bottom', 'time (s)', color='k', size="12pt")
                 if i!=0:
                     self.plots[i].setXLink(self.plots[0])
                     # self.plots[i].setYLink(self.plots[0])
@@ -540,7 +547,7 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
         self.params.param('Live Run', 'Run ML Model').setOpts(enabled=False)
         self.params.param('Stop').setOpts(enabled=True)
         self.params.param('Load').setOpts(enabled=False)
-        model_run_process = mp.Process(target=model_run, args=(heatmaps_mp,prediction_mp,mean,std,main_running_mp,lock,data_ch8_mp))
+        model_run_process = mp.Process(target=model_run, args=(heatmaps_mp,prediction_mp,mean,std,main_running_mp,lock,data_ch8_mp,run_ml_model_mp))
         model_run_process.start()
 
     def alpha(self):
@@ -794,7 +801,8 @@ class BraiNeoCareGUI(QtWidgets.QWidget):
                 else:
                     print(f"Error: self.plots[{i}] is not a PlotItem instance.")
         else:
-            self.curves[i].setData(x=self.time_array, y=self.data_ch12_filtered[i],pen='g')
+            for i in range(len(CHANNEL12)):
+                self.curves[i].setData(x=self.time_array, y=self.data_ch12_filtered[i],pen='g')
 
         self.data_acc_gyr = np.array(data_acc_gyr_mp).reshape((6,-1))
         if np.sum(np.var(self.data_acc_gyr[:,-250:-50], axis=1))*1000>20:

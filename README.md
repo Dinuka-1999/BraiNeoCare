@@ -109,7 +109,8 @@ https://github.com/Dinuka-1999/BraiNeoCare/assets/81279517/fac5e828-8e20-4523-a7
 
 As of now, we couldn't get the maximum benefit out of the Self-supervised learning model. Therefore in our future work, we will develop version two of this proposed model.
 
-## In - Publication
+## Cite
+BibTeX of the original publication in the proceedings of IEEE International Conference on Systems, Man, and Cybernetics 2024 will soon replace this 
 ```
 @article{udayantha2024using,
   title={Using Explainable AI for EEG-based Reduced Montage Neonatal Seizure Detection},

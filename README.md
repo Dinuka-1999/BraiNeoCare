@@ -112,10 +112,12 @@ As of now, we couldn't get the maximum benefit out of the Self-supervised learni
 ## Cite
 BibTeX of the original publication in the proceedings of IEEE International Conference on Systems, Man, and Cybernetics 2024 will soon replace this 
 ```
-@article{udayantha2024using,
-  title={Using Explainable AI for EEG-based Reduced Montage Neonatal Seizure Detection},
-  author={Udayantha, Dinuka Sandun and Weerasinghe, Kavindu and Wickramasinghe, Nima and Abeyratne, Akila and Wickremasinghe, Kithmin and Wanigasinghe, Jithangi and De Silva, Anjula and Edussooriya, Chamira US},
-  journal={arXiv preprint arXiv:2406.16908},
-  year={2024}
-}
+@INPROCEEDINGS{10831030,
+  author={Udayantha, Dinuka Sandun and Weerasinghe, Kavindu and Wickramasinghe, Nima and Abeyratne, Akila and Wickremasinghe, Kithmin and Wanigasinghe, Jithangi and De Silva, Anjula and Edussooriya, Chamira U. S.},
+  booktitle={2024 IEEE International Conference on Systems, Man, and Cybernetics (SMC)}, 
+  title={Using Explainable AI for EEG-based Reduced Montage Neonatal Seizure Detection}, 
+  year={2024},
+  pages={463-468},
+  doi={10.1109/SMC54092.2024.10831030}}
+
 ```
